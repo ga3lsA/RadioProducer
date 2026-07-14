@@ -1,0 +1,1783 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Radio Producer</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext x='50' y='78' font-size='78' text-anchor='middle'%3E%F0%9F%8E%99%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --bg:#14161c;
+    --panel:#1c1f28;
+    --panel-2:#232733;
+    --line:#2d3140;
+    --text:#e8eaf0;
+    --muted:#8a90a3;
+    --amber:#e6007e;
+    --amber-dim:#3a0e28;
+    --danger:#ff5c5c;
+    --radius:10px;
+    --header-h:73px;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; font-size:14px; min-height:100vh;}
+  .mono{font-family:'Space Mono',monospace;}
+  header{
+    display:flex; flex-direction:column; gap:12px;
+    padding:14px 20px; border-bottom:1px solid var(--line);
+    background:var(--panel); position:sticky; top:0; z-index:30;
+  }
+  .header-row{display:flex; align-items:center; gap:12px; flex-wrap:wrap;}
+  header .brand{display:flex; align-items:center; gap:10px; margin-right:6px;}
+  header .brand .brand-mic{font-size:40px; line-height:1;}
+  header .brand h1{font-size:19px; margin:0; letter-spacing:.02em; font-weight:700; color:var(--text);}
+  header input.showname{
+    background:var(--panel-2); border:1px solid var(--line); color:var(--text); font-size:14px; font-weight:600;
+    border-radius:8px; padding:8px 10px; max-width:220px;
+  }
+  header input.showname:focus{outline:none; border-color:var(--amber);}
+  header input.claim{
+    background:var(--panel-2); border:1px solid var(--line); color:var(--muted); font-size:12.5px; font-style:italic;
+    border-radius:8px; padding:8px 10px; max-width:220px;
+  }
+  header input.claim:focus{outline:none; border-color:var(--amber); color:var(--text);}
+  header input[type="date"], header input.hourstart{
+    background:var(--panel-2); border:1px solid var(--line); color:var(--text); border-radius:8px; padding:7px 8px; font-family:'Space Mono',monospace; font-size:12.5px;
+  }
+  header input.hourstart{width:52px; text-align:center;}
+  .hdr-field{display:flex; align-items:center; gap:6px; color:var(--muted); font-size:11.5px;}
+  select, button{
+    font-family:'Inter',sans-serif; font-size:12.5px; font-weight:600;
+    border-radius:8px; border:1px solid var(--line); background:var(--panel-2); color:var(--text);
+    padding:8px 12px; cursor:pointer; transition:border-color .15s, background .15s;
+  }
+  button:hover, select:hover{border-color:#454b5e;}
+  button.primary{background:var(--amber); color:#ffffff; border-color:var(--amber);}
+  button.primary:hover{background:#ff2e9e;}
+  button.ghost{background:transparent;}
+  button.small{padding:6px 10px; font-size:11.5px;}
+  button.danger-txt{color:var(--danger);}
+  .header-row-actions{row-gap:10px;}
+  .hdr-section{display:flex; align-items:center; gap:6px;}
+  .hdr-label{font-size:9.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); font-weight:700; margin-right:2px; white-space:nowrap;}
+  .hdr-sep{width:1px; align-self:stretch; background:var(--line); margin:0 2px;}
+  .hdr-section select{max-width:150px;}
+  .spacer{flex:1;}
+
+  .layout{display:grid; grid-template-columns:380px 1fr; gap:0; align-items:start;}
+  @media (max-width:1050px){ .layout{grid-template-columns:1fr;} }
+
+  .tools-pane{padding:20px; display:flex; flex-direction:column; gap:16px; position:sticky; top:var(--header-h, 73px); max-height:calc(100vh - var(--header-h, 73px)); overflow-y:auto;}
+  @media (max-width:1050px){ .tools-pane{position:static; max-height:none;} }
+
+  .card{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:16px;}
+  .card h2{font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin:0 0 12px; display:flex; align-items:center; justify-content:space-between;}
+
+  .type-tabs{display:flex; gap:6px; margin-bottom:12px; flex-wrap:wrap;}
+  .type-tabs button{flex:1; min-width:70px; padding:8px 6px; border-radius:8px; display:flex; align-items:center; justify-content:center; gap:5px; font-size:11px;}
+  .type-tabs button .ic-emoji{font-size:14px;}
+  .type-tabs button[data-active="true"]{background:var(--amber-dim); border-color:var(--amber); color:var(--amber);}
+  .type-tabs .addtype-btn{flex:0 0 auto; min-width:32px; padding:8px;}
+
+  .form-row{display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap; margin-bottom:10px;}
+  .field{display:flex; flex-direction:column; gap:4px; flex:1; min-width:110px;}
+  .field label{font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted);}
+  .field input[type="text"], .field select{background:var(--panel-2); border:1px solid var(--line); color:var(--text); border-radius:8px; padding:8px 10px; font-size:13px;}
+  .dur-field{display:flex; align-items:center; gap:4px;}
+  .dur-field input{width:44px; text-align:center; background:var(--panel-2); border:1px solid var(--line); color:var(--text); border-radius:8px; padding:8px 4px; font-family:'Space Mono',monospace;}
+  .dur-field span{color:var(--muted);}
+  .add-form .submit-row{display:flex; justify-content:flex-end; margin-top:4px;}
+
+  .logo-slot{display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--line);}
+  .logo-slot:last-child{border-bottom:none;}
+  .logo-slot .thumb{width:66px; height:46px; border-radius:8px; background:#fff; display:flex; align-items:center; justify-content:center; overflow:hidden; border:1px solid var(--line); flex:none;}
+  .logo-slot .thumb img{max-width:100%; max-height:100%; object-fit:contain;}
+  .logo-slot .thumb.empty{color:#b8bcc8; font-size:10px; text-align:center;}
+  .logo-slot .meta{flex:1; min-width:0;}
+  .logo-slot .meta .role{font-size:12.5px; font-weight:600; color:var(--text);}
+  .logo-slot .meta .hint{font-size:10.5px; color:var(--muted); line-height:1.4;}
+  .logo-slot .actions{display:flex; flex-direction:column; gap:4px; flex:none;}
+  .logo-slot .actions button{padding:4px 8px; font-size:10.5px;}
+
+  .hour-chip-label{font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin-bottom:6px;}
+  .hour-chip-wrap{display:flex; flex-wrap:wrap; gap:5px;}
+  .hour-chip{font-family:'Space Mono',monospace; font-size:10.5px; background:var(--panel-2); border:1px solid var(--line); border-radius:12px; padding:3px 8px; color:var(--muted);}
+  .hour-chip b{color:var(--amber); font-weight:700;}
+  .music-status{font-size:11.5px; color:var(--muted); margin-bottom:10px; line-height:1.5;}
+  .music-entries{max-height:220px; overflow-y:auto; display:flex; flex-direction:column; gap:6px; margin-bottom:10px;}
+  .music-entry-row{display:grid; grid-template-columns:52px 1fr 1fr 44px; gap:6px; background:var(--panel-2); border:1px solid var(--line); border-radius:8px; padding:6px 8px;}
+  .music-entry-row input{background:transparent; border:none; color:var(--text); font-size:11.5px; padding:2px; border-radius:4px;}
+  .music-entry-row input.time, .music-entry-row input.dur{font-family:'Space Mono',monospace; text-align:center;}
+  .music-entry-row input:focus{outline:none; background:var(--panel); }
+
+  .summary-line{display:flex; justify-content:space-between; font-size:12px; color:var(--muted); padding:4px 0;}
+  .summary-line b{color:var(--text); font-family:'Space Mono',monospace;}
+
+  .rundown-pane{padding:24px 24px 80px; border-left:1px solid var(--line); min-height:calc(100vh - 73px); display:flex; flex-direction:column; gap:18px;}
+
+  .hour-card{background:var(--panel); border:1px solid var(--line); border-radius:14px; overflow:visible;}
+  .hour-card.over .hour-head{border-bottom-color:var(--amber);}
+  .hour-head{
+    display:flex; align-items:center; gap:12px; padding:10px 16px; border-bottom:1px solid var(--line);
+    background:var(--panel-2); flex-wrap:wrap; border-radius:14px 14px 0 0;
+    position:sticky; top:var(--header-h, 73px); z-index:15;
+  }
+  .hour-badge{
+    background:var(--amber); color:#fff; font-weight:700; font-family:'Space Mono',monospace; font-size:15px;
+    padding:7px 14px; border-radius:10px; white-space:nowrap; flex:none; box-shadow:0 2px 6px rgba(230,0,126,.35);
+  }
+  .hour-card.over .hour-badge{background:var(--amber); box-shadow:0 2px 6px rgba(230,0,126,.4);}
+  .hour-num{font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; flex:none;}
+  .hour-title{font-weight:700; font-size:14px;}
+  .hour-total{font-family:'Space Mono',monospace; font-size:12.5px; color:var(--muted); flex:none; white-space:nowrap;}
+  .hour-total b{color:var(--amber);}
+  .hour-card.over .hour-total b{color:var(--amber);}
+  .hour-bar{flex:1; height:6px; background:var(--line); border-radius:3px; overflow:hidden; min-width:60px;}
+  .hour-bar-fill{height:100%; background:var(--amber); border-radius:3px;}
+  .hour-card.over .hour-bar-fill{background:var(--amber);}
+  .dup-btn{margin-left:4px; white-space:nowrap; flex:none;}
+  .filehour-picker{flex:none;}
+  .filehour-select{background:var(--panel); border:1px solid var(--line); color:var(--text); border-radius:6px; font-size:11px; padding:5px 6px; max-width:150px;}
+  .hour-body{padding:10px 12px; display:flex; flex-direction:column; gap:6px; min-height:44px;}
+  .hour-empty{color:var(--muted); font-size:12px; text-align:center; padding:16px; border:1px dashed var(--line); border-radius:8px;}
+
+  .block-row{
+    display:grid; grid-template-columns:80px 20px 40px 1fr 128px 32px; gap:10px; align-items:center;
+    background:#ffffff; border:1px solid #e2e4ec; border-radius:8px; padding:10px 12px;
+    box-shadow:0 1px 2px rgba(0,0,0,.18);
+  }
+  .block-row.dragging{opacity:.35;}
+  .block-row.drop-before{border-top:2px solid var(--amber);}
+  .block-row.drop-after{border-bottom:2px solid var(--amber);}
+  .block-row .handle{cursor:grab; color:#9aa0b0; text-align:center; user-select:none;}
+  .block-row .type-ic{display:flex; align-items:center; justify-content:center; font-size:30px;}
+  .block-row .name-wrap{min-width:0;}
+  .block-row input.name{background:transparent; border:1px solid transparent; color:#1c1f28; border-radius:6px; padding:5px 6px; font-size:14.5px; font-weight:600; width:100%;}
+  .block-row input.name:focus{outline:none; border-color:#d5d8e2; background:#f6f7fb;}
+  .block-row .music-fields{display:flex; flex-direction:column; gap:2px;}
+  .block-row .music-fields input{background:transparent; border:1px solid transparent; color:#1c1f28; border-radius:4px; padding:3px 5px; font-size:13.5px; font-weight:600; width:100%;}
+  .block-row .music-fields input.artist{color:#6b7280; font-style:italic; font-weight:500; font-size:12.5px;}
+  .block-row .music-fields input:focus{outline:none; border-color:#d5d8e2; background:#f6f7fb;}
+  .block-row .music-fields select{font-size:10.5px; padding:3px 4px; width:100%;}
+  .block-row .dur{display:flex; align-items:center; gap:3px; justify-content:center;}
+  .block-row .dur input{width:36px; text-align:center; background:#f2f3f7; border:1px solid #e2e4ec; color:#1c1f28; font-family:'Space Mono',monospace; font-size:16px; font-weight:700; border-radius:5px; padding:4px 0;}
+  .block-row .dur input:focus{outline:none; border-color:var(--amber); background:#ffffff;}
+  .block-row .dur span{color:#9aa0b0; font-weight:700;}
+  .block-row .heure-badge{
+    background:var(--amber); color:#fff; font-weight:700; font-family:'Space Mono',monospace; font-size:11px;
+    padding:7px 4px; border-radius:8px; text-align:center; white-space:nowrap;
+  }
+  .block-row .row-actions{display:flex; flex-direction:column; align-items:center; gap:1px;}
+  .block-row .move-up, .block-row .move-down{background:transparent; border:none; color:#b8bcc8; font-size:9px; cursor:pointer; padding:1px 4px; line-height:1;}
+  .block-row .move-up:hover, .block-row .move-down:hover{color:var(--amber);}
+  .block-row .del{background:transparent; border:none; color:#9aa0b0; font-size:16px; cursor:pointer; padding:2px;}
+  .block-row .del:hover{color:var(--danger);}
+  .block-row.is-music{background:#fdf1f8;}
+  .block-row.unplaced{border:1.5px dashed var(--amber);}
+  .unplaced-badge{grid-column:1/-1; font-size:10.5px; font-weight:700; color:var(--amber); margin-top:2px;}
+  .talk-notes-wrap{grid-column:1/-1; margin-top:4px;}
+  .talk-notes{
+    width:100%; min-height:36px; resize:vertical; box-sizing:border-box;
+    background:#f7f8fb; border:1px solid #e2e4ec; border-radius:8px; padding:8px 10px;
+    font-family:'Inter',sans-serif; font-size:13px; font-weight:400; font-style:normal; color:#2b2d36; line-height:1.45;
+  }
+  .talk-notes:focus{outline:none; border-color:var(--amber); background:#ffffff;}
+  .talk-notes::placeholder{color:#a8acb8;}
+  input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-outer-spin-button{-webkit-appearance:none; margin:0;}
+  input[type="number"]{-moz-appearance:textfield;}
+
+  .brand-radio-logo{background:#fff; border-radius:8px; padding:4px 8px; display:flex; align-items:center; height:36px;}
+  .brand-radio-logo img{height:100%; max-width:120px; object-fit:contain;}
+
+  ::-webkit-scrollbar{width:8px;} ::-webkit-scrollbar-thumb{background:#333849; border-radius:4px;}
+
+  .modal-overlay{position:fixed; inset:0; background:rgba(8,9,13,0.72); z-index:80; display:flex; align-items:center; justify-content:center; padding:20px;}
+  .modal-card{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:22px; width:100%; max-width:400px; box-shadow:0 12px 40px rgba(0,0,0,.4);}
+  .modal-card h3{margin:0 0 8px; font-size:16px;}
+  .modal-sub{font-size:12px; color:var(--muted); line-height:1.5; margin:0 0 16px;}
+  .modal-field{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px;}
+  .modal-field label{font-size:12.5px; color:var(--text);}
+  .modal-field input{width:140px; text-align:center; background:var(--panel-2); border:1px solid var(--line); color:var(--text); border-radius:8px; padding:7px; font-family:'Space Mono',monospace; font-size:13px;}
+  .modal-actions{display:flex; justify-content:flex-end; gap:8px; margin-top:6px;}
+
+  /* ===== Mobile (téléphone) ===== */
+  @media (max-width:700px){
+    header{padding:10px 12px; gap:8px;}
+    .header-row{gap:8px;}
+    .brand .brand-mic{font-size:28px;}
+    .brand h1{font-size:15px;}
+    header input.showname{max-width:130px; font-size:12.5px; padding:6px 8px;}
+    header input.claim{max-width:110px; font-size:11px; padding:6px 8px;}
+    .hdr-field{font-size:10px;}
+    .hdr-section{gap:4px;}
+    .hdr-label{display:none;}
+    button.small, select{font-size:11px; padding:6px 8px;}
+    .brand-radio-logo{height:26px; padding:3px 5px;}
+    .brand-radio-logo img{max-width:70px;}
+
+    .tools-pane{padding:12px; gap:12px;}
+    .rundown-pane{padding:12px 12px 60px;}
+    .card{padding:12px;}
+
+    .hour-head{padding:8px 10px; gap:8px;}
+    .hour-badge{font-size:12px; padding:5px 8px;}
+    .hour-num{display:none;}
+    .hour-total{font-size:10.5px;}
+    .filehour-select{max-width:100px; font-size:9.5px;}
+    .dup-btn{font-size:0;}
+    .dup-btn::before{content:"⧉"; font-size:14px;}
+
+    .block-row{
+      grid-template-columns: 58px 26px 1fr 62px 22px;
+      gap:6px; padding:8px 9px;
+    }
+    .block-row .handle{display:none;}
+    .block-row .heure-badge{font-size:9px; padding:5px 3px;}
+    .block-row .type-ic{font-size:20px;}
+    .block-row input.name{font-size:13px;}
+    .block-row .music-fields input{font-size:12px;}
+    .block-row .dur input{width:22px; font-size:13px; padding:3px 0;}
+    .block-row .dur span{font-size:11px;}
+    .block-row .times{display:none;}
+    .row-actions .move-up, .row-actions .move-down{font-size:8px;}
+    .row-actions .del{font-size:14px;}
+
+    .music-entry-row{grid-template-columns:44px 1fr 1fr 36px; gap:4px; padding:5px 6px;}
+    .music-entry-row input{font-size:10.5px;}
+
+    .modal-card{padding:16px; max-width:100%;}
+    .modal-field{flex-wrap:wrap; gap:6px;}
+    .modal-field input{width:100%;}
+
+    .logo-slot{flex-wrap:wrap;}
+    .logo-slot .actions{flex-direction:row;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-row header-row-top">
+    <div class="brand"><span class="brand-mic">🎙️</span><h1>RADIO PRODUCER</h1></div>
+    <input class="showname mono" id="showNameInput" value="Émission sans titre" spellcheck="false">
+    <input class="claim mono" id="claimInput" value="" placeholder="Claim de l'émission" spellcheck="false">
+    <div class="hdr-field">Date <input type="date" id="showDate"></div>
+    <div class="hdr-field">Début <input type="number" class="hourstart" id="startHour" min="0" max="23" placeholder="hh">:<input type="number" class="hourstart" id="startMinute" min="0" max="59" placeholder="mm"></div>
+    <button class="small" id="btnResize">Nb heures : <span id="numHoursLabel">—</span></button>
+    <div class="spacer"></div>
+    <div class="brand-radio-logo" id="brandRadioLogo" style="display:none;"><img id="brandRadioLogoImg"></div>
+  </div>
+
+  <div class="header-row header-row-actions">
+    <div class="hdr-section">
+      <span class="hdr-label">Modèles</span>
+      <select id="tplSelect"><option value="">— Modèles —</option></select>
+      <button class="small" id="btnTplSave" title="Enregistrer le modèle courant">💾 Enregistrer</button>
+      <button class="small" id="btnTplSaveAs" title="Enregistrer sous un nouveau nom">Sous…</button>
+      <button class="small danger-txt" id="btnTplDelete" title="Supprimer ce modèle">🗑</button>
+    </div>
+
+    <div class="hdr-sep"></div>
+
+    <div class="hdr-section">
+      <span class="hdr-label">Conducteurs</span>
+      <select id="cdtSelect"><option value="">— Conducteurs enregistrés —</option></select>
+      <button class="small" id="btnCdtSave" title="Enregistrer le conducteur à cette date">📅 Enregistrer</button>
+      <button class="small danger-txt" id="btnCdtDelete" title="Supprimer ce conducteur">🗑</button>
+    </div>
+
+    <div class="hdr-sep"></div>
+
+    <div class="hdr-section">
+      <button class="small" id="btnNew">Nouveau</button>
+    </div>
+
+    <div class="hdr-sep"></div>
+
+    <div class="hdr-section">
+      <span class="hdr-label">JSON</span>
+      <button class="small" id="btnExportJson">Exporter</button>
+      <button class="small" id="btnImportJson">Importer</button>
+      <input type="file" id="importFileInput" accept="application/json,.json" style="display:none">
+    </div>
+
+    <div class="spacer"></div>
+
+    <div class="hdr-section">
+      <button class="small primary" id="btnPdf">📄 Export PDF</button>
+    </div>
+  </div>
+</header>
+
+<div class="layout">
+  <div class="tools-pane">
+
+    <div class="card">
+      <h2>Ajouter un bloc</h2>
+      <div class="type-tabs" id="typeTabs"></div>
+      <div class="form-row">
+        <div class="field" style="flex:2;">
+          <label>Nom du bloc</label>
+          <input type="text" id="nameInput" placeholder="ex : Interview invité, Power Gold…">
+        </div>
+        <div class="field" style="flex:0 0 auto;">
+          <label>Durée</label>
+          <div class="dur-field">
+            <input type="number" id="durMin" min="0" max="60" value="3"><span>:</span>
+            <input type="number" id="durSec" min="0" max="59" value="0">
+          </div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label>Ajouter à</label>
+          <select id="targetHourSelect"></select>
+        </div>
+      </div>
+      <div class="add-form submit-row">
+        <button class="primary small" id="btnAddBlock">+ Ajouter le bloc</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Rubriques récurrentes (Talk)</h2>
+      <div class="form-row">
+        <div class="field" style="flex:2;">
+          <label>Rubriques enregistrées</label>
+          <select id="rubriqueSelect"><option value="">— choisir —</option></select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field" style="flex:2;">
+          <label>Nom</label>
+          <input type="text" id="rubriqueName" placeholder="ex : Le jeu du jour">
+        </div>
+        <div class="field" style="flex:0 0 auto;">
+          <label>Durée</label>
+          <div class="dur-field">
+            <input type="number" id="rubriqueDurMin" min="0" max="60" value="3"><span>:</span>
+            <input type="number" id="rubriqueDurSec" min="0" max="59" value="0">
+          </div>
+        </div>
+      </div>
+      <div class="form-row" style="justify-content:flex-end; gap:8px;">
+        <button class="small danger-txt" id="btnRubriqueDelete">Supprimer</button>
+        <button class="small" id="btnRubriqueSave">💾 Enregistrer / MAJ</button>
+      </div>
+      <div class="add-form submit-row">
+        <button class="primary small" id="btnRubriqueInsert">+ Ajouter au conducteur</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Logos &amp; illustrations <button class="small ghost" id="btnToggleLogos" style="padding:3px 9px; font-size:10.5px;">Replier</button></h2>
+      <div id="logoSlots"></div>
+      <input type="file" id="logoFileInput" accept="image/png,image/jpeg" style="display:none">
+    </div>
+
+    <div class="card">
+      <h2>Import musique (XLS / PDF)</h2>
+      <input type="file" id="musicFileInput" accept=".xls,.xlsx,.pdf,application/pdf,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="display:none">
+      <button class="small" id="btnImportMusicPdf" style="width:100%; margin-bottom:10px;">📄 Importer un fichier de programmation (xls ou PDF)</button>
+      <div class="music-status" id="musicStatus">Aucun fichier importé. Formats xls et PDF calibrés sur l'export type GSelector (Heure / Artiste / Titre / Durée) ; les autres PDF utilisent une détection générique de secours.</div>
+      <div id="musicHourBreakdown" style="display:none; margin-bottom:10px;"></div>
+      <div class="music-entries" id="musicEntries"></div>
+      <button class="small" id="btnAutoAssign" style="width:100%;" disabled>⚡ Assigner aux blocs Musique par heure</button>
+    </div>
+
+    <div class="card">
+      <h2>Résumé</h2>
+      <div id="summaryBox"></div>
+    </div>
+
+  </div>
+
+  <div class="rundown-pane" id="rundownPane"></div>
+</div>
+
+<div id="modalRoot"></div>
+
+<script>
+(function(){
+  const STORAGE_KEY = "radioProducerStore_v1";
+
+  const DEFAULT_TYPES = {
+    talk:    {label:"Talk",       emoji:"🎙️", color:"#4f8ef7"},
+    pub:     {label:"Écran Pub",  emoji:"💵", color:"#8a8f9e"},
+    musique: {label:"Musique",    emoji:"💿", color:"#e6007e"},
+    flash:   {label:"Flash Info", emoji:"📰", color:"#ffb020"}
+  };
+  const CUSTOM_PALETTE = ["#39c98a","#c98a39","#8a5fd6","#d64f7a","#4fc3d6","#d6c34f"];
+
+  let store = loadStore();
+  let state = null;          // current working conducteur/template state
+  let mode = { kind:null, name:null }; // kind: 'template' | 'conducteur' | null(unsaved)
+  let activeType = "talk";
+  let pendingLogoRole = null;
+  const LOGO_ROLES = {
+    radio:    { label:"Logo radio",   hint:"En-tête de l'interface + centré en haut de l'export PDF." },
+    emission: { label:"Logo émission",hint:"En grand à côté de l'avancement de chaque heure + en-tête PDF de chaque heure." },
+    equipe:   { label:"Logo équipe",  hint:"Picto à côté de chaque module Talk, uniquement dans l'export PDF." }
+  };
+  let drag = null; // {hourIdx, blockIdx}
+
+  // ---------------- persistence ----------------
+  function loadStore(){
+    let s;
+    try{
+      const raw = localStorage.getItem(STORAGE_KEY);
+      s = raw ? JSON.parse(raw) : {};
+    }catch(e){ s = {}; }
+    if(!s.templates) s.templates = {};
+    if(!s.conducteurs) s.conducteurs = {};
+    if(!s.rubriques) s.rubriques = {};
+    return s;
+  }
+  function persistStore(){
+    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(store)); }catch(e){ console.warn("Sauvegarde impossible", e); }
+  }
+
+  function uid(prefix){ return (prefix||"id") + "_" + Math.random().toString(36).slice(2,10); }
+
+  function blankState(name){
+    return {
+      name: name || "Émission sans titre",
+      claim: "",
+      date: todayIso(),
+      startHour: null,
+      startMinute: 0,
+      numHours: 1,
+      hours: [ { blocks: [], fileHour:null } ],
+      customTypes: [],
+      logos: { radio: null, emission: null, equipe: null },
+      musicImport: { fileName:"", sourceType:null, entries:[] }
+    };
+  }
+  function todayIso(){ const d=new Date(); return d.toISOString().slice(0,10); }
+
+  function fmtMMSS(sec){
+    sec = Math.max(0, Math.round(sec));
+    const m = Math.floor(sec/60), s = sec%60;
+    return String(m).padStart(2,"0") + ":" + String(s).padStart(2,"0");
+  }
+  function escapeHtml(s){
+    return (s||"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  }
+
+  function allTypes(){
+    const t = Object.assign({}, DEFAULT_TYPES);
+    (state.customTypes||[]).forEach(ct=>{ t[ct.key] = ct; });
+    return t;
+  }
+
+  // ---------------- init ----------------
+  function init(){
+    state = blankState("Émission sans titre");
+    mode = { kind:null, name:null };
+    renderAll();
+    refreshTplSelect();
+    refreshCdtSelect();
+    refreshRubriqueSelect();
+    bindEvents();
+    window.addEventListener("resize", updateHeaderHeight);
+    if(window.ResizeObserver){
+      new ResizeObserver(updateHeaderHeight).observe(document.querySelector("header"));
+    }
+  }
+
+  // ---------------- setup modal (nombre d'heures / nouveau) ----------------
+  function openSetupModal(prefill){
+    const root = document.getElementById("modalRoot");
+    const p = prefill || {};
+    root.innerHTML = `
+      <div class="modal-overlay">
+        <div class="modal-card">
+          <h3>Configuration de l'émission</h3>
+          <p class="modal-sub">Détermine la durée et le cadrage du conducteur. Chaque heure dure 60 minutes à partir de l'heure de début choisie.</p>
+          <div class="modal-field"><label>Nom de l'émission</label><input type="text" id="mNom" value="${escapeHtml(p.name||'Émission sans titre')}"></div>
+          <div class="modal-field"><label>Date</label><input type="date" id="mDate" value="${p.date||todayIso()}"></div>
+          <div class="modal-field"><label>Heure de début (optionnel)</label><input type="number" id="mStart" min="0" max="23" placeholder="hh" style="width:60px;" value="${p.startHour!=null?p.startHour:''}"> : <input type="number" id="mStartMin" min="0" max="59" placeholder="mm" style="width:60px;" value="${p.startMinute!=null?p.startMinute:''}"></div>
+          <div class="modal-field"><label>Nombre d'heures</label><input type="number" id="mHours" min="1" max="24" value="${p.numHours||1}"></div>
+          <div class="modal-actions">
+            <button class="ghost small" id="mCancel">Annuler</button>
+            <button class="primary small" id="mOk">Valider</button>
+          </div>
+        </div>
+      </div>`;
+    document.getElementById("mCancel").onclick = ()=>{ root.innerHTML=""; };
+    document.getElementById("mOk").onclick = ()=>{
+      const name = document.getElementById("mNom").value.trim() || "Émission sans titre";
+      const date = document.getElementById("mDate").value || todayIso();
+      const startRaw = document.getElementById("mStart").value;
+      const startHour = startRaw === "" ? null : Math.max(0, Math.min(23, parseInt(startRaw,10)));
+      const startMinRaw = document.getElementById("mStartMin").value;
+      const startMinute = startMinRaw === "" ? 0 : Math.max(0, Math.min(59, parseInt(startMinRaw,10)));
+      const numHours = Math.max(1, Math.min(24, parseInt(document.getElementById("mHours").value,10) || 1));
+
+      const wasNew = !prefill;
+      const newState = blankState(name);
+      newState.date = date;
+      newState.startHour = startHour;
+      newState.startMinute = startMinute;
+      newState.numHours = numHours;
+      newState.hours = Array.from({length:numHours}, (_,i)=>{
+        const existing = (state && state.hours && state.hours[i]) ? state.hours[i] : null;
+        return existing ? existing : { blocks: [], fileHour:null };
+      });
+      if(!wasNew){
+        // resize existant : conserver logos, types custom, import musique, claim
+        newState.customTypes = state.customTypes;
+        newState.logos = state.logos;
+        newState.musicImport = state.musicImport;
+        newState.claim = state.claim;
+      }
+      state = newState;
+      if(wasNew) mode = { kind:null, name:null };
+      root.innerHTML = "";
+      renderAll();
+    };
+  }
+
+  // ---------------- dupliquer une heure vers d'autres heures ----------------
+  function openDuplicateHourModal(sourceIdx){
+    const root = document.getElementById("modalRoot");
+    const others = state.hours.map((h,i)=>i).filter(i=>i!==sourceIdx);
+    const rows = others.map(i=>{
+      const n = state.hours[i].blocks.length;
+      const warn = n ? ` <span style="color:var(--muted);">(${n} bloc${n>1?"s":""} existant${n>1?"s":""} seront remplacés)</span>` : "";
+      return `<label style="display:flex; align-items:center; gap:8px; margin-bottom:10px; font-size:13px; cursor:pointer;">
+        <input type="checkbox" class="dupTarget" value="${i}"> ${hourLabel(i)}${warn}
+      </label>`;
+    }).join("");
+    root.innerHTML = `
+      <div class="modal-overlay">
+        <div class="modal-card">
+          <h3>Dupliquer ${hourLabel(sourceIdx)}</h3>
+          <p class="modal-sub">Sélectionne les heures qui recevront une copie exacte des blocs de ${hourLabel(sourceIdx)} (le contenu actuel de ces heures sera remplacé).</p>
+          <div style="max-height:260px; overflow-y:auto; margin-bottom:14px;">${rows || '<p class="modal-sub">Aucune autre heure disponible.</p>'}</div>
+          <div class="modal-actions">
+            <button class="ghost small" id="dupCancel">Annuler</button>
+            <button class="primary small" id="dupOk">Dupliquer</button>
+          </div>
+        </div>
+      </div>`;
+    document.getElementById("dupCancel").onclick = ()=>{ root.innerHTML=""; };
+    document.getElementById("dupOk").onclick = ()=>{
+      const targets = Array.from(document.querySelectorAll(".dupTarget:checked")).map(cb=>parseInt(cb.value,10));
+      if(!targets.length){ alert("Sélectionne au moins une heure cible."); return; }
+      targets.forEach(t=>{
+        state.hours[t].blocks = state.hours[sourceIdx].blocks.map(b=> Object.assign({}, JSON.parse(JSON.stringify(b)), { id: uid("b") }));
+      });
+      root.innerHTML = "";
+      renderRundown(); renderSummary();
+    };
+  }
+
+  // ---------------- store select refresh ----------------
+  function refreshTplSelect(){
+    const sel = document.getElementById("tplSelect");
+    sel.innerHTML = '<option value="">— Modèles —</option>';
+    Object.keys(store.templates).sort().forEach(n=>{
+      const o = document.createElement("option"); o.value=n; o.textContent=n; sel.appendChild(o);
+    });
+    sel.value = (mode.kind==="template") ? mode.name : "";
+  }
+  function refreshCdtSelect(){
+    const sel = document.getElementById("cdtSelect");
+    sel.innerHTML = '<option value="">— Conducteurs enregistrés —</option>';
+    Object.keys(store.conducteurs).sort().reverse().forEach(n=>{
+      const o = document.createElement("option"); o.value=n; o.textContent=n; sel.appendChild(o);
+    });
+    sel.value = (mode.kind==="conducteur") ? mode.name : "";
+  }
+
+  // ---------------- render ----------------
+  function updateHeaderHeight(){
+    const h = document.querySelector("header").offsetHeight;
+    document.documentElement.style.setProperty("--header-h", h + "px");
+  }
+
+  function renderAll(){
+    document.getElementById("showNameInput").value = state.name;
+    document.getElementById("claimInput").value = state.claim || "";
+    document.getElementById("showDate").value = state.date;
+    document.getElementById("startHour").value = state.startHour!=null ? state.startHour : "";
+    document.getElementById("startMinute").value = state.startHour!=null ? (state.startMinute||0) : "";
+    document.getElementById("numHoursLabel").textContent = state.numHours;
+    renderTargetHourSelect();
+    renderTypeTabs();
+    renderLogoSlots();
+    updateBrandLogo();
+    renderMusicPanel();
+    renderRundown();
+    renderSummary();
+    updateHeaderHeight();
+  }
+
+  function renderTypeTabs(){
+    const wrap = document.getElementById("typeTabs");
+    wrap.innerHTML = "";
+    const types = allTypes();
+    Object.keys(types).forEach(key=>{
+      const t = types[key];
+      const b = document.createElement("button");
+      b.type="button"; b.dataset.type = key; if(activeType===key) b.dataset.active="true";
+      b.innerHTML = `<span class="ic-emoji">${t.emoji}</span>${t.label}`;
+      b.addEventListener("click", ()=>{ activeType = key; document.getElementById("nameInput").value = t.label; renderTypeTabs(); });
+      wrap.appendChild(b);
+    });
+    const addBtn = document.createElement("button");
+    addBtn.type="button"; addBtn.className="addtype-btn"; addBtn.title="Créer un type de bloc personnalisé"; addBtn.textContent="+";
+    addBtn.addEventListener("click", addCustomType);
+    wrap.appendChild(addBtn);
+  }
+
+  function addCustomType(){
+    const label = prompt("Nom du nouveau type de bloc (ex : Jeu, Météo, Chronique) :");
+    if(!label) return;
+    const key = "custom_" + label.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g,"_").slice(0,20) + "_" + Math.random().toString(36).slice(2,5);
+    const emoji = prompt("Un emoji pour ce type (optionnel) :", "🔖") || "🔖";
+    const color = CUSTOM_PALETTE[(state.customTypes||[]).length % CUSTOM_PALETTE.length];
+    state.customTypes = state.customTypes || [];
+    state.customTypes.push({ key, label, emoji, color });
+    activeType = key;
+    document.getElementById("nameInput").value = label;
+    renderTypeTabs();
+  }
+
+  function renderTargetHourSelect(){
+    const sel = document.getElementById("targetHourSelect");
+    const prevVal = sel.value;
+    sel.innerHTML = "";
+    state.hours.forEach((h,i)=>{
+      const o = document.createElement("option"); o.value=i; o.textContent = hourLabel(i);
+      sel.appendChild(o);
+    });
+    if(prevVal !== "" && +prevVal < state.hours.length) sel.value = prevVal;
+  }
+
+  // Retourne l'heure de début totale en minutes depuis minuit (ou null si non définie)
+  function startTotalMinutes(){
+    return state.startHour!=null ? state.startHour*60 + (state.startMinute||0) : null;
+  }
+  // Heure d'horloge réelle (0-23) d'une carte-heure du conducteur, pour le rattachement au fichier importé
+  function clockHourOf(hIdx){
+    const total = startTotalMinutes();
+    if(total==null) return null;
+    return Math.floor((total + hIdx*60) / 60) % 24;
+  }
+  function hourLabel(i){
+    const total = startTotalMinutes();
+    if(total!=null){
+      const t = (total + i*60) % 1440;
+      const h = Math.floor(t/60), m = t%60;
+      return "Heure " + (i+1) + " — " + String(h).padStart(2,"0") + ":" + String(m).padStart(2,"0");
+    }
+    return "Heure " + (i+1);
+  }
+
+  // ---- logos : un rôle fixe par image (radio / émission / équipe), fond blanc appliqué au traitement ----
+  function processLogoFile(file){
+    return new Promise((resolve, reject)=>{
+      const reader = new FileReader();
+      reader.onload = ()=>{
+        const img = new Image();
+        img.onload = ()=>{
+          const boxW = 480, boxH = 260, pad = 22;
+          const canvas = document.createElement("canvas");
+          canvas.width = boxW; canvas.height = boxH;
+          const ctx = canvas.getContext("2d");
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(0,0,boxW,boxH);
+          const availW = boxW - pad*2, availH = boxH - pad*2;
+          let w = availW, h = w * (img.naturalHeight/img.naturalWidth);
+          if(h > availH){ h = availH; w = h * (img.naturalWidth/img.naturalHeight); }
+          const x = (boxW-w)/2, y = (boxH-h)/2;
+          ctx.drawImage(img, x, y, w, h);
+          resolve({ dataUrl: canvas.toDataURL("image/png"), ratio: boxW/boxH, name: file.name });
+        };
+        img.onerror = reject;
+        img.src = reader.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function renderLogoSlots(){
+    const wrap = document.getElementById("logoSlots");
+    wrap.innerHTML = "";
+    Object.keys(LOGO_ROLES).forEach(roleKey=>{
+      const role = LOGO_ROLES[roleKey];
+      const logo = state.logos[roleKey];
+      const row = document.createElement("div"); row.className = "logo-slot";
+      row.innerHTML = `
+        <div class="thumb ${logo?"":"empty"}">${logo ? `<img src="${logo.dataUrl}">` : "Aucune<br>image"}</div>
+        <div class="meta"><div class="role">${role.label}</div><div class="hint">${role.hint}</div></div>
+        <div class="actions">
+          <button class="small btn-upload">${logo?"Remplacer":"+ Ajouter"}</button>
+          ${logo ? '<button class="small danger-txt btn-remove">Supprimer</button>' : ""}
+        </div>`;
+      row.querySelector(".btn-upload").addEventListener("click", ()=>{
+        pendingLogoRole = roleKey;
+        document.getElementById("logoFileInput").click();
+      });
+      const rmBtn = row.querySelector(".btn-remove");
+      if(rmBtn) rmBtn.addEventListener("click", ()=>{
+        state.logos[roleKey] = null;
+        renderLogoSlots(); updateBrandLogo(); renderRundown();
+      });
+      wrap.appendChild(row);
+    });
+  }
+
+  function updateBrandLogo(){
+    const box = document.getElementById("brandRadioLogo");
+    const img = document.getElementById("brandRadioLogoImg");
+    if(state.logos.radio){
+      img.src = state.logos.radio.dataUrl;
+      box.style.display = "flex";
+    } else {
+      box.style.display = "none";
+    }
+  }
+
+  // ---- music import ----
+  function renderMusicPanel(){
+    const status = document.getElementById("musicStatus");
+    const mi = state.musicImport;
+    if(mi.fileName){
+      const kindLabel = mi.sourceType === "xls" ? "xls (GSelector)" : mi.sourceType === "gselector" ? "PDF (GSelector)" : "PDF (générique)";
+      status.textContent = `Fichier importé (${kindLabel}) : ${mi.fileName} — ${mi.entries.length} titre(s) détecté(s). Corrige les champs si besoin puis assigne aux blocs Musique.`;
+    } else {
+      status.textContent = "Aucun fichier importé. Formats xls et PDF calibrés sur l'export type GSelector (Heure / Artiste / Titre / Durée) ; les autres PDF utilisent une détection générique de secours.";
+    }
+
+    const breakdownWrap = document.getElementById("musicHourBreakdown");
+    if(mi.sourceType !== "pdf-generic" && mi.entries.length){
+      const chips = [];
+      for(let h=0; h<24; h++){
+        const cnt = musicEntryCountByHour(h);
+        if(cnt) chips.push(`<span class="hour-chip">${String(h).padStart(2,"0")}:00 <b>${cnt}</b></span>`);
+      }
+      breakdownWrap.innerHTML = `<div class="hour-chip-label">Titres détectés par heure réelle du fichier :</div><div class="hour-chip-wrap">${chips.join("")}</div>`;
+      breakdownWrap.style.display = "block";
+    } else {
+      breakdownWrap.innerHTML = "";
+      breakdownWrap.style.display = "none";
+    }
+
+    const entriesWrap = document.getElementById("musicEntries");
+    entriesWrap.innerHTML = "";
+    mi.entries.forEach(entry=>{
+      const row = document.createElement("div"); row.className="music-entry-row";
+      const durVal = entry.duration!=null ? fmtMMSS(entry.duration) : "";
+      row.innerHTML = `<input class="time mono" value="${escapeHtml(entry.time)}">
+        <input class="title" value="${escapeHtml(entry.title)}" placeholder="Titre">
+        <input class="artist" value="${escapeHtml(entry.artist)}" placeholder="Artiste">
+        <input class="dur mono" value="${escapeHtml(durVal)}" placeholder="mm:ss">`;
+      const [tIn, titleIn, artIn, durIn] = row.querySelectorAll("input");
+      tIn.addEventListener("change", ()=>{ entry.time = tIn.value; });
+      titleIn.addEventListener("change", ()=>{ entry.title = titleIn.value; });
+      artIn.addEventListener("change", ()=>{ entry.artist = artIn.value; });
+      durIn.addEventListener("change", ()=>{ const v = parseDurationMMSS(durIn.value); if(v!=null) entry.duration = v; });
+      entriesWrap.appendChild(row);
+    });
+    document.getElementById("btnAutoAssign").disabled = mi.entries.length === 0;
+  }
+
+  function musicEntryCountByHour(h){
+    return state.musicImport.entries.filter(e=>e.hour===h).length;
+  }
+
+  function timeStrToSeconds(str){
+    const m = String(str).match(/(\d{1,2})[:h](\d{2})(?:[:m](\d{2}))?/);
+    if(!m) return null;
+    const h = parseInt(m[1],10), mi = parseInt(m[2],10), s = m[3]?parseInt(m[3],10):0;
+    return h*3600+mi*60+s;
+  }
+  function parseDurationMMSS(str){
+    const m = String(str||"").trim().match(/^(\d{1,3}):([0-5]\d)$/);
+    if(!m) return null;
+    return parseInt(m[1],10)*60 + parseInt(m[2],10);
+  }
+
+  // ---------------- dispatcher : détecte xls vs PDF à l'extension ----------------
+  function importMusicFile(file){
+    const name = (file.name||"").toLowerCase();
+    if(name.endsWith(".xls") || name.endsWith(".xlsx")){
+      importMusicXls(file);
+    } else {
+      importMusicPdf(file);
+    }
+  }
+
+  // ---------------- import xls (calibré sur export GSelector) ----------------
+  async function importMusicXls(file){
+    document.getElementById("musicStatus").textContent = "Lecture du fichier Excel en cours…";
+    try{
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type:"array", cellDates:true });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:null, raw:true });
+      const entries = parseGSelectorRows(rows);
+      if(!entries.length){
+        document.getElementById("musicStatus").textContent = "Aucun titre détecté dans ce fichier. La structure ne correspond peut-être pas à l'export GSelector attendu (colonnes Heure / Artiste / Titre / Durée).";
+        return;
+      }
+      state.musicImport = { fileName: file.name, sourceType:"xls", entries };
+      renderMusicPanel();
+      renderRundown();
+    }catch(e){
+      console.error(e);
+      document.getElementById("musicStatus").textContent = "Erreur lors de la lecture du fichier Excel : " + e.message;
+    }
+  }
+
+  // Met en forme "OFENBACH X STARSAILOR" -> "Ofenbach x Starsailor", "SHAKIRA [+] BURNA BOY" -> "Shakira & Burna Boy"
+  // (les exports d'automation radio sont toujours tout en majuscules)
+  function toDisplayCase(str){
+    if(!str) return "";
+    let s = str.replace(/\[\+\]/g, "&").toLowerCase();
+    s = s.replace(/\b\w/g, c => c.toUpperCase());
+    s = s.replace(/'([A-Z])\b/g, (m,c) => "'" + c.toLowerCase());
+    s = s.replace(/\bX\b/g, "x");
+    return s.trim();
+  }
+
+  // Structure observée (export GSelector) : chaque titre occupe une ligne "temps"
+  // avec col0=Heure (Date), col2=Artiste, col5=Titre, col11=Durée ("mm:ss").
+  // Les lignes "ETM_..." sont des marqueurs système (reset d'horloge) à ignorer,
+  // et seules les lignes avec un Artiste renseigné sont de la musique (le reste :
+  // jingles, liners, ID d'antenne). Certains titres en simulcast satellite portent
+  // une durée "00:00" (contrôlée par le réseau, pas localement) : on les garde mais
+  // sans écraser la durée du bloc à l'assignation.
+  function parseGSelectorRows(rows){
+    const entries = [];
+    for(let i=0;i<rows.length;i++){
+      const row = rows[i] || [];
+      const v0 = row[0];
+      if(!(v0 instanceof Date)) continue;
+      const artistRaw = (typeof row[2] === "string") ? row[2].trim() : "";
+      const titleRaw = (typeof row[5] === "string") ? row[5].trim() : "";
+      if(!artistRaw || !titleRaw) continue;
+      if(titleRaw.toUpperCase().startsWith("ETM_")) continue;
+      const durStr = (typeof row[11] === "string") ? row[11].trim() : "";
+      const parsedDur = parseDurationMMSS(durStr);
+      if(parsedDur == null) continue;
+      const duration = parsedDur > 0 ? parsedDur : null; // 0 = durée inconnue (simulcast), pas une vraie valeur
+      // SheetJS construit les dates en utilisant l'heure LOCALE du navigateur (pas UTC) pour représenter
+      // fidèlement l'heure telle qu'affichée dans Excel : il faut donc relire avec les accesseurs locaux,
+      // sinon le résultat se décale de l'écart horaire local (ex : -2h à Paris en été/CEST).
+      const hh = v0.getHours(), mm = v0.getMinutes(), ss = v0.getSeconds();
+      entries.push({
+        id: uid("me"),
+        time: String(hh).padStart(2,"0")+":"+String(mm).padStart(2,"0")+":"+String(ss).padStart(2,"0"),
+        hour: hh,
+        absSec: hh*3600+mm*60+ss,
+        title: toDisplayCase(titleRaw),
+        artist: toDisplayCase(artistRaw),
+        duration
+      });
+    }
+    return entries;
+  }
+
+  async function importMusicPdf(file){
+    document.getElementById("musicStatus").textContent = "Lecture du PDF en cours…";
+    try{
+      pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+      const buf = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({data:buf}).promise;
+
+      let entries = [];
+      for(let p=1; p<=pdf.numPages; p++){
+        const page = await pdf.getPage(p);
+        const content = await page.getTextContent();
+        entries = entries.concat(extractGSelectorPdfEntries(content.items));
+      }
+
+      if(entries.length){
+        state.musicImport = { fileName: file.name, sourceType:"gselector", entries };
+      } else {
+        // repli : PDF non structuré comme un export GSelector -> détection générique par horaires
+        let fullText = "";
+        for(let p=1; p<=pdf.numPages; p++){
+          const page = await pdf.getPage(p);
+          const content = await page.getTextContent();
+          fullText += content.items.map(it=>it.str).join(" ") + "\n";
+        }
+        entries = parseMusicText(fullText);
+        state.musicImport = { fileName: file.name, sourceType:"pdf-generic", entries };
+      }
+      renderMusicPanel();
+      renderRundown();
+    }catch(e){
+      console.error(e);
+      document.getElementById("musicStatus").textContent = "Erreur lors de la lecture du PDF : " + e.message + ". Le format n'est peut-être pas un PDF texte standard.";
+    }
+  }
+
+  // Parseur calibré sur l'export "conducteur" GSelector en PDF (colonnes Heure / Artiste / Titre / Intro-Durée
+  // repérées par leur position horizontale sur la page, ex. Europe 2 et RFM partagent la même mise en page).
+  // Chaque page est reconstruite ligne par ligne (regroupement par position verticale, tri par position
+  // horizontale) pour retrouver l'ordre de lecture réel, que l'extraction brute du PDF ne respecte pas toujours.
+  function extractGSelectorPdfEntries(items){
+    const words = items
+      .map(it=>({ text: it.str, x: it.transform[4], y: it.transform[5] }))
+      .filter(w=> w.text.trim() !== "");
+    words.sort((a,b)=> b.y - a.y);
+
+    const TOL = 2.5;
+    const lines = [];
+    words.forEach(w=>{
+      let line = lines[lines.length-1];
+      if(!line || Math.abs(line.y - w.y) > TOL){
+        line = { y:w.y, words:[] };
+        lines.push(line);
+      }
+      line.words.push(w);
+    });
+    lines.forEach(l=> l.words.sort((a,b)=> a.x-b.x));
+
+    const timeRe = /^\d{2}:\d{2}:\d{2}$/;
+    const entries = [];
+    lines.forEach(line=>{
+      const w = line.words;
+      if(!w.length || w[0].x > 60 || !timeRe.test(w[0].text)) return;
+      const timeStr = w[0].text;
+
+      const artistParts = [], titleParts = [], durParts = [];
+      for(let i=1;i<w.length;i++){
+        const x = w[i].x;
+        if(x < 275) artistParts.push(w[i].text);
+        else if(x < 540) titleParts.push(w[i].text);
+        else if(x < 615) durParts.push(w[i].text);
+        // au-delà : lettre de catégorie (C/S/CS/CR...), ignorée
+      }
+      const artist = artistParts.join(" ").trim();
+      const title = titleParts.join(" ").trim();
+      if(!artist || !title) return;
+      if(title.toUpperCase().startsWith("ETM_")) return;
+
+      const durMatches = [...durParts.join(" ").matchAll(/(\d{1,2}):([0-5]\d)/g)];
+      if(!durMatches.length) return;
+      const last = durMatches[durMatches.length-1];
+      const duration = parseInt(last[1],10)*60 + parseInt(last[2],10);
+
+      const hour = parseInt(timeStr.slice(0,2),10);
+      entries.push({
+        id: uid("me"), time: timeStr, hour,
+        absSec: hour*3600 + parseInt(timeStr.slice(3,5),10)*60 + parseInt(timeStr.slice(6,8),10),
+        title, artist, duration
+      });
+    });
+    return entries;
+  }
+
+  function parseMusicText(text){
+    const timeRe = /\b([01]?\d|2[0-3])[:h]([0-5]\d)(?:[:m]([0-5]\d))?\b/g;
+    const matches = [];
+    let m;
+    while((m = timeRe.exec(text)) !== null){
+      matches.push({ index: m.index, len: m[0].length, str: m[0] });
+    }
+    const entries = [];
+    for(let i=0; i<matches.length; i++){
+      const start = matches[i].index + matches[i].len;
+      const end = (i+1 < matches.length) ? matches[i+1].index : text.length;
+      let chunk = text.slice(start, end).trim();
+      chunk = chunk.replace(/\s{2,}/g," ").slice(0, 160);
+      if(!chunk) continue;
+      let title = chunk, artist = "";
+      const sepMatch = chunk.match(/^(.{1,80}?)\s+[-–—]\s+(.{1,80})$/);
+      if(sepMatch){ artist = sepMatch[1].trim(); title = sepMatch[2].trim(); }
+      entries.push({ id: uid("me"), time: matches[i].str, title, artist, duration:null });
+    }
+    return entries;
+  }
+
+  // ---------------- assignation : dispatcher selon le type de source ----------------
+  function autoAssignMusic(){
+    if(state.musicImport.sourceType !== "pdf-generic"){
+      assignMusicByHourXls();
+    } else {
+      assignMusicGenericByTime();
+    }
+  }
+
+  // xls : regroupement par heure d'horloge, correspondance dans l'ordre chronologique,
+  // alerte si le nombre de titres ne correspond pas au nombre de blocs Musique prévus.
+  function assignMusicByHourXls(){
+    const byHour = {};
+    state.musicImport.entries.forEach(e=>{
+      if(e.hour==null) return;
+      (byHour[e.hour] = byHour[e.hour] || []).push(e);
+    });
+    Object.keys(byHour).forEach(h=> byHour[h].sort((a,b)=>a.absSec-b.absSec));
+
+    const report = [];
+    let filled = 0;
+
+    state.hours.forEach((hourObj, hIdx)=>{
+      const autoFileHour = clockHourOf(hIdx);
+      const clockHour = hourObj.fileHour!=null ? hourObj.fileHour : autoFileHour;
+      const musicBlocks = hourObj.blocks.filter(b=>b.type==="musique");
+
+      if(clockHour == null){
+        if(musicBlocks.length) report.push(`${hourLabel(hIdx)} : aucune heure de fichier sélectionnée pour ce bloc — choisis-la dans le menu déroulant au-dessus de cette heure.`);
+        return;
+      }
+      const clockLabel = String(clockHour).padStart(2,"0")+":00";
+      const xlsEntries = (byHour[clockHour] || []).slice();
+      const n = Math.min(xlsEntries.length, musicBlocks.length);
+
+      for(let k=0;k<n;k++){
+        musicBlocks[k].musicTitle = xlsEntries[k].title;
+        musicBlocks[k].musicArtist = xlsEntries[k].artist;
+        if(xlsEntries[k].duration) musicBlocks[k].duration = xlsEntries[k].duration;
+        filled++;
+      }
+
+      if(xlsEntries.length > musicBlocks.length){
+        for(let k=musicBlocks.length; k<xlsEntries.length; k++){
+          hourObj.blocks.push({
+            id: uid("b"), type:"musique",
+            name:"Musique", duration: xlsEntries[k].duration || 210,
+            musicTitle: xlsEntries[k].title, musicArtist: xlsEntries[k].artist,
+            unplaced: true
+          });
+        }
+        report.push(`${hourLabel(hIdx)} (fichier ${clockLabel}) : ${xlsEntries.length} titre(s) trouvé(s) pour ${musicBlocks.length} bloc(s) Musique prévu(s) — ${xlsEntries.length - musicBlocks.length} bloc(s) ajouté(s) en fin d'heure (à repositionner ou supprimer).`);
+      } else if(xlsEntries.length < musicBlocks.length){
+        report.push(`${hourLabel(hIdx)} (fichier ${clockLabel}) : seulement ${xlsEntries.length} titre(s) trouvé(s) pour ${musicBlocks.length} bloc(s) Musique prévu(s) — ${musicBlocks.length - xlsEntries.length} bloc(s) resteront vides.`);
+      } else if(musicBlocks.length){
+        report.push(`${hourLabel(hIdx)} (fichier ${clockLabel}) : ${xlsEntries.length} titre(s) — OK.`);
+      }
+    });
+
+    renderRundown(); renderSummary();
+    alert(`Assignation terminée (${filled} bloc(s) renseigné(s)).\n\nCorrespondance heure du conducteur → heure du fichier :\n\n` + report.join("\n"));
+  }
+
+  // PDF générique : correspondance par horaire le plus proche (comportement précédent)
+  function assignMusicGenericByTime(){
+    const entries = state.musicImport.entries.slice();
+    const withSec = entries.map(e=>({ e, sec: timeStrToSeconds(e.time) })).filter(x=>x.sec!=null);
+    withSec.sort((a,b)=>a.sec-b.sec);
+    const used = new Set();
+
+    const musicBlocks = [];
+    state.hours.forEach((hour, hIdx)=>{
+      let cursor = 0;
+      hour.blocks.forEach(block=>{
+        if(block.type === "musique"){
+          const absSec = ((startTotalMinutes()!=null ? startTotalMinutes()*60 : 0) + hIdx*3600) + cursor;
+          musicBlocks.push({ block, absSec });
+        }
+        cursor += block.duration;
+      });
+    });
+    musicBlocks.sort((a,b)=>a.absSec-b.absSec);
+
+    musicBlocks.forEach(mb=>{
+      let best = null, bestDiff = Infinity;
+      withSec.forEach((x,idx)=>{
+        if(used.has(idx)) return;
+        const diff = Math.abs(x.sec - mb.absSec);
+        if(diff < bestDiff){ bestDiff = diff; best = idx; }
+      });
+      if(best!=null){
+        used.add(best);
+        mb.block.musicTitle = withSec[best].e.title;
+        mb.block.musicArtist = withSec[best].e.artist;
+      }
+    });
+    renderRundown();
+  }
+
+  // ---- rundown ----
+  function renderRundown(){
+    const pane = document.getElementById("rundownPane");
+    pane.innerHTML = "";
+
+    const types = allTypes();
+
+    state.hours.forEach((hour, hIdx)=>{
+      const total = hour.blocks.reduce((s,b)=>s+b.duration,0);
+      const overflow = total > 3600;
+      const card = document.createElement("div"); card.className = "hour-card" + (overflow?" over":"");
+
+      const head = document.createElement("div"); head.className="hour-head";
+      const autoFileHour = clockHourOf(hIdx);
+      const effectiveFileHour = hour.fileHour!=null ? hour.fileHour : autoFileHour;
+      const clockLabel = state.startHour!=null ? hourLabel(hIdx).split(" — ")[1] : "H" + (hIdx+1);
+
+      head.innerHTML = `
+        <div class="hour-badge">${clockLabel}</div>
+        <div class="hour-num">Heure ${hIdx+1}</div>
+        <div class="hour-bar"><div class="hour-bar-fill" style="width:${Math.min(100, total/3600*100)}%"></div></div>
+        <div class="hour-total"><b>${fmtMMSS(total)}</b> / 60:00${overflow?' <span style="color:var(--amber)">⚠ dépassement</span>':''}</div>
+        <div class="filehour-picker"><select class="filehour-select" title="Titres du fichier importé pour cette heure"></select></div>
+        <button class="small ghost dup-btn" title="Dupliquer cette heure vers d'autres heures">⧉ Dupliquer</button>
+      `;
+      head.querySelector(".dup-btn").addEventListener("click", ()=> openDuplicateHourModal(hIdx));
+      const fhSelect = head.querySelector(".filehour-select");
+      let fhOptions = '<option value="">— Import : aucune —</option>';
+      for(let h=0; h<24; h++){
+        const cnt = musicEntryCountByHour(h);
+        fhOptions += `<option value="${h}" ${effectiveFileHour===h?"selected":""}>${String(h).padStart(2,"0")}:00${cnt?` (${cnt} titre${cnt>1?"s":""})`:""}</option>`;
+      }
+      fhSelect.innerHTML = fhOptions;
+      fhSelect.addEventListener("change", e=>{
+        hour.fileHour = e.target.value===""? null : parseInt(e.target.value,10);
+      });
+
+      card.appendChild(head);
+
+      const body = document.createElement("div"); body.className="hour-body";
+      body.dataset.hourIdx = hIdx;
+      if(!hour.blocks.length){
+        body.innerHTML = '<div class="hour-empty">Aucun bloc — utilise le formulaire à gauche pour en ajouter</div>';
+      } else {
+        let cursor = 0;
+        hour.blocks.forEach((block, bIdx)=>{
+          const start = cursor; cursor += block.duration;
+          const t = types[block.type] || {label:block.type, emoji:"🔖", color:"#888"};
+          const row = document.createElement("div"); row.className="block-row" + (block.type==="musique" ? " is-music" : "") + (block.unplaced ? " unplaced" : "");
+          row.draggable = true;
+          row.dataset.hourIdx = hIdx; row.dataset.blockIdx = bIdx;
+          row.style.borderLeft = "3px solid " + t.color;
+
+          row.innerHTML = `
+            <div class="heure-badge">${absStartHMS(hIdx, start)}</div>
+            <div class="handle">⠿</div>
+            <div class="type-ic">${t.emoji}</div>
+            <div class="row-main"></div>
+            <div class="dur"><input type="number" class="durm" min="0" max="60" value="${Math.floor(block.duration/60)}"><span>:</span><input type="number" class="durs" min="0" max="59" value="${block.duration%60}"></div>
+            <div class="row-actions">
+              <button class="move-up" title="Monter">▲</button>
+              <button class="move-down" title="Descendre">▼</button>
+              <button class="del" title="Supprimer">×</button>
+            </div>
+          `;
+          if(block.unplaced){
+            const badge = document.createElement("div");
+            badge.className = "unplaced-badge";
+            badge.textContent = "⚠ ajouté depuis l'import — à repositionner ou supprimer";
+            row.appendChild(badge);
+          }
+          if(block.type === "talk"){
+            const notesWrap = document.createElement("div");
+            notesWrap.className = "talk-notes-wrap";
+            notesWrap.innerHTML = `<textarea class="talk-notes" placeholder="Texte à lire, notes, éléments à copier-coller...">${escapeHtml(block.notes||"")}</textarea>`;
+            const ta = notesWrap.querySelector("textarea");
+            ta.addEventListener("input", ()=>{ ta.style.height="auto"; ta.style.height = ta.scrollHeight+"px"; });
+            ta.addEventListener("change", ()=>{ block.notes = ta.value; });
+            row.appendChild(notesWrap);
+            requestAnimationFrame(()=>{ ta.style.height="auto"; ta.style.height = ta.scrollHeight+"px"; });
+          }
+          const mainSlot = row.querySelector(".row-main");
+          if(block.type === "musique"){
+            mainSlot.innerHTML = `<div class="music-fields"><input class="title" value="${escapeHtml(block.musicTitle||'')}" placeholder="Titre"><input class="artist" value="${escapeHtml(block.musicArtist||'')}" placeholder="Artiste"></div>`;
+            const [titleIn, artIn] = mainSlot.querySelectorAll("input");
+            titleIn.addEventListener("change", ()=>{ block.musicTitle = titleIn.value; });
+            artIn.addEventListener("change", ()=>{ block.musicArtist = artIn.value; });
+          } else {
+            mainSlot.innerHTML = `<input type="text" class="name" value="${escapeHtml(block.name)}">`;
+            mainSlot.querySelector("input").addEventListener("change", e=>{ block.name = e.target.value; });
+          }
+
+          row.querySelector(".durm").addEventListener("change", e=>{
+            const m = Math.max(0, parseInt(e.target.value,10)||0);
+            const s = block.duration % 60;
+            block.duration = m*60+s; renderRundown(); renderSummary();
+          });
+          row.querySelector(".durs").addEventListener("change", e=>{
+            const s = Math.max(0, Math.min(59, parseInt(e.target.value,10)||0));
+            const m = Math.floor(block.duration/60);
+            block.duration = m*60+s; renderRundown(); renderSummary();
+          });
+          row.querySelector(".del").addEventListener("click", ()=>{
+            hour.blocks.splice(bIdx,1); renderRundown(); renderSummary();
+          });
+          row.querySelector(".move-up").addEventListener("click", ()=> moveBlockWithinHour(hIdx, bIdx, -1));
+          row.querySelector(".move-down").addEventListener("click", ()=> moveBlockWithinHour(hIdx, bIdx, 1));
+
+          row.addEventListener("dragstart", ()=>{ drag = {hourIdx:hIdx, blockIdx:bIdx}; row.classList.add("dragging"); });
+          row.addEventListener("dragend", ()=>{ row.classList.remove("dragging"); clearDropMarkers(); });
+          row.addEventListener("dragover", e=>{
+            e.preventDefault();
+            clearDropMarkers();
+            const rect = row.getBoundingClientRect();
+            const before = (e.clientY - rect.top) < rect.height/2;
+            row.classList.add(before ? "drop-before" : "drop-after");
+          });
+          row.addEventListener("drop", e=>{
+            e.preventDefault();
+            if(!drag) return;
+            const rect = row.getBoundingClientRect();
+            const before = (e.clientY - rect.top) < rect.height/2;
+            let targetIdx = bIdx + (before?0:1);
+            moveBlock(drag.hourIdx, drag.blockIdx, hIdx, targetIdx);
+            drag = null;
+          });
+
+          body.appendChild(row);
+        });
+      }
+      body.addEventListener("dragover", e=>{ e.preventDefault(); });
+      body.addEventListener("drop", e=>{
+        e.preventDefault();
+        if(e.target !== body) return; // only when dropping on empty area, not on a row (handled above)
+        if(!drag) return;
+        moveBlock(drag.hourIdx, drag.blockIdx, hIdx, hour.blocks.length);
+        drag = null;
+      });
+      card.appendChild(body);
+      pane.appendChild(card);
+    });
+  }
+
+  function clearDropMarkers(){
+    document.querySelectorAll(".block-row.drop-before, .block-row.drop-after").forEach(el=>{
+      el.classList.remove("drop-before"); el.classList.remove("drop-after");
+    });
+  }
+
+  function moveBlockWithinHour(hIdx, bIdx, delta){
+    const blocks = state.hours[hIdx].blocks;
+    const target = bIdx + delta;
+    if(target < 0 || target >= blocks.length) return;
+    const [block] = blocks.splice(bIdx, 1);
+    blocks.splice(target, 0, block);
+    renderRundown(); renderSummary();
+  }
+
+  function moveBlock(fromHour, fromIdx, toHour, toIdx){
+    const block = state.hours[fromHour].blocks[fromIdx];
+    if(!block) return;
+    state.hours[fromHour].blocks.splice(fromIdx,1);
+    if(fromHour === toHour && fromIdx < toIdx) toIdx -= 1;
+    delete block.unplaced;
+    state.hours[toHour].blocks.splice(toIdx, 0, block);
+    renderRundown(); renderSummary();
+  }
+
+  function renderSummary(){
+    const box = document.getElementById("summaryBox");
+    let totalBlocks = 0, musicBlocks = 0, musicAssigned = 0, totalSec = 0;
+    state.hours.forEach(h=>h.blocks.forEach(b=>{
+      totalBlocks++; totalSec += b.duration;
+      if(b.type==="musique"){ musicBlocks++; if(b.musicTitle) musicAssigned++; }
+    }));
+    box.innerHTML = `
+      <div class="summary-line"><span>Heures</span><b>${state.numHours}</b></div>
+      <div class="summary-line"><span>Blocs</span><b>${totalBlocks}</b></div>
+      <div class="summary-line"><span>Durée totale programmée</span><b>${fmtMMSS(totalSec)}</b></div>
+      <div class="summary-line"><span>Blocs Musique</span><b>${musicAssigned}/${musicBlocks} renseignés</b></div>
+    `;
+  }
+
+  // ---------------- rubriques récurrentes (Talk) ----------------
+  function refreshRubriqueSelect(){
+    const sel = document.getElementById("rubriqueSelect");
+    const prevVal = sel.value;
+    sel.innerHTML = '<option value="">— choisir —</option>';
+    Object.keys(store.rubriques).sort().forEach(name=>{
+      const o = document.createElement("option");
+      o.value = name; o.textContent = name + " — " + fmtMMSS(store.rubriques[name]);
+      sel.appendChild(o);
+    });
+    if(prevVal && store.rubriques[prevVal]!=null) sel.value = prevVal;
+  }
+  function onRubriqueSelected(){
+    const name = document.getElementById("rubriqueSelect").value;
+    if(!name || store.rubriques[name]==null) return;
+    document.getElementById("rubriqueName").value = name;
+    const dur = store.rubriques[name];
+    document.getElementById("rubriqueDurMin").value = Math.floor(dur/60);
+    document.getElementById("rubriqueDurSec").value = dur%60;
+  }
+  function saveRubrique(){
+    const name = document.getElementById("rubriqueName").value.trim();
+    if(!name){ alert("Indique un nom pour cette rubrique."); return; }
+    const min = Math.max(0, parseInt(document.getElementById("rubriqueDurMin").value,10) || 0);
+    const sec = Math.max(0, Math.min(59, parseInt(document.getElementById("rubriqueDurSec").value,10) || 0));
+    const duration = min*60+sec;
+    if(duration <= 0){ alert("Indique une durée supérieure à 0."); return; }
+    store.rubriques[name] = duration;
+    persistStore();
+    refreshRubriqueSelect();
+    document.getElementById("rubriqueSelect").value = name;
+  }
+  function deleteRubrique(){
+    const name = document.getElementById("rubriqueSelect").value;
+    if(!name){ alert("Sélectionne d'abord une rubrique enregistrée."); return; }
+    if(!confirm(`Supprimer la rubrique "${name}" ?`)) return;
+    delete store.rubriques[name];
+    persistStore();
+    document.getElementById("rubriqueName").value = "";
+    refreshRubriqueSelect();
+  }
+  function insertRubrique(){
+    const name = document.getElementById("rubriqueSelect").value || document.getElementById("rubriqueName").value.trim();
+    let duration;
+    if(store.rubriques[name]!=null){
+      duration = store.rubriques[name];
+    } else {
+      const min = Math.max(0, parseInt(document.getElementById("rubriqueDurMin").value,10) || 0);
+      const sec = Math.max(0, Math.min(59, parseInt(document.getElementById("rubriqueDurSec").value,10) || 0));
+      duration = min*60+sec;
+    }
+    if(!name){ alert("Choisis ou saisis une rubrique à ajouter."); return; }
+    if(!duration || duration<=0){ alert("Durée invalide pour cette rubrique."); return; }
+    const hourIdx = parseInt(document.getElementById("targetHourSelect").value,10) || 0;
+    state.hours[hourIdx].blocks.push({ id: uid("b"), type:"talk", name, duration });
+    renderRundown(); renderSummary();
+  }
+
+  // ---------------- add block ----------------
+  function addBlock(){
+    const name = document.getElementById("nameInput").value.trim() || allTypes()[activeType].label;
+    const min = Math.max(0, parseInt(document.getElementById("durMin").value,10) || 0);
+    const sec = Math.max(0, Math.min(59, parseInt(document.getElementById("durSec").value,10) || 0));
+    const duration = min*60+sec;
+    if(duration <= 0){ alert("Indique une durée supérieure à 0."); return; }
+    const hourIdx = parseInt(document.getElementById("targetHourSelect").value,10) || 0;
+    const block = { id: uid("b"), type: activeType, name, duration };
+    if(activeType === "musique"){ block.musicTitle=""; block.musicArtist=""; }
+    state.hours[hourIdx].blocks.push(block);
+    renderRundown(); renderSummary();
+  }
+
+  // ---------------- templates & conducteurs ----------------
+  function snapshot(){ return JSON.parse(JSON.stringify(state)); }
+
+  function saveTemplate(asNew){
+    let name = mode.kind==="template" && !asNew ? mode.name : null;
+    if(!name){
+      name = prompt("Nom du modèle :", state.name);
+      if(!name) return;
+    }
+    store.templates[name] = snapshot();
+    persistStore();
+    mode = { kind:"template", name };
+    refreshTplSelect(); refreshCdtSelect();
+  }
+  function loadTemplate(name){
+    if(!name || !store.templates[name]) return;
+    state = JSON.parse(JSON.stringify(store.templates[name]));
+    mode = { kind:"template", name };
+    renderAll(); refreshTplSelect(); refreshCdtSelect();
+  }
+  function deleteTemplate(){
+    if(mode.kind!=="template" || !mode.name) { alert("Sélectionne d'abord un modèle enregistré."); return; }
+    if(!confirm(`Supprimer le modèle "${mode.name}" ?`)) return;
+    delete store.templates[mode.name];
+    persistStore();
+    mode = { kind:null, name:null };
+    refreshTplSelect();
+  }
+
+  function saveConducteur(){
+    const defaultLabel = state.date + " — " + state.name;
+    const label = prompt("Enregistrer ce conducteur sous quel nom/date ?", defaultLabel);
+    if(!label) return;
+    store.conducteurs[label] = snapshot();
+    persistStore();
+    mode = { kind:"conducteur", name:label };
+    refreshCdtSelect(); refreshTplSelect();
+  }
+  function loadConducteur(name){
+    if(!name || !store.conducteurs[name]) return;
+    state = JSON.parse(JSON.stringify(store.conducteurs[name]));
+    mode = { kind:"conducteur", name };
+    renderAll(); refreshCdtSelect(); refreshTplSelect();
+  }
+  function deleteConducteur(){
+    if(mode.kind!=="conducteur" || !mode.name){ alert("Sélectionne d'abord un conducteur enregistré."); return; }
+    if(!confirm(`Supprimer le conducteur "${mode.name}" ?`)) return;
+    delete store.conducteurs[mode.name];
+    persistStore();
+    mode = { kind:null, name:null };
+    refreshCdtSelect();
+  }
+
+  // ---------------- JSON export/import (full backup) ----------------
+  function exportJson(){
+    const blob = new Blob([JSON.stringify(store, null, 2)], {type:"application/json"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "radio-producer-backup-" + todayIso() + ".json";
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  }
+  function importJson(file){
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      try{
+        const incoming = JSON.parse(reader.result);
+        if(!incoming.templates && !incoming.conducteurs && !incoming.rubriques){ alert("Fichier JSON non reconnu."); return; }
+        store.templates = Object.assign({}, store.templates, incoming.templates||{});
+        store.conducteurs = Object.assign({}, store.conducteurs, incoming.conducteurs||{});
+        store.rubriques = Object.assign({}, store.rubriques, incoming.rubriques||{});
+        persistStore();
+        refreshTplSelect(); refreshCdtSelect(); refreshRubriqueSelect();
+        alert("Import réussi : " + Object.keys(incoming.templates||{}).length + " modèle(s), " + Object.keys(incoming.conducteurs||{}).length + " conducteur(s), " + Object.keys(incoming.rubriques||{}).length + " rubrique(s) fusionné(s). Les logos associés à chaque modèle/conducteur sont inclus.");
+      }catch(e){
+        alert("Erreur de lecture du fichier JSON : " + e.message);
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  // ---------------- PDF export ----------------
+  function absStartHMS(hIdx, cursorSec){
+    const startSec = (startTotalMinutes()!=null ? startTotalMinutes()*60 : 0);
+    const base = startSec + hIdx*3600 + cursorSec;
+    const wrapped = ((base % 86400) + 86400) % 86400;
+    const hh = Math.floor(wrapped/3600), mm = Math.floor((wrapped%3600)/60), ss = wrapped%60;
+    return String(hh).padStart(2,"0") + ":" + String(mm).padStart(2,"0") + ":" + String(ss).padStart(2,"0");
+  }
+
+  function formatDateFr(iso){
+    if(!iso) return "";
+    const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if(!m) return iso;
+    return m[3] + "/" + m[2] + "/" + m[1];
+  }
+  function toTitleCase(s){
+    return String(s||"").toLowerCase().replace(/(^|[\s'’-])\S/g, c=>c.toUpperCase());
+  }
+  function hourClockLabel(hIdx){
+    const total = startTotalMinutes();
+    if(total!=null){
+      const t = (total + hIdx*60) % 1440;
+      return String(Math.floor(t/60)).padStart(2,"0") + ":" + String(t%60).padStart(2,"0");
+    }
+    return "Heure " + (hIdx+1);
+  }
+
+  function exportPdf(){
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation:"portrait", unit:"pt", format:"a4" });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 40;
+    const contentWidth = pageWidth - margin*2;
+
+    const radioLogo = state.logos.radio;
+    const emissionLogo = state.logos.emission;
+    const equipeLogo = state.logos.equipe;
+
+    // Bandeau d'en-tête : hauteur fixe, redessiné identique en haut de chaque page/heure
+    const BAND_H = 96; // environ le double d'une ligne normale
+    const RADIO_LOGO_H = 36;
+    const EMISSION_LOGO_H = 82;
+    const headerHeight = margin + BAND_H + 18;
+
+    function drawHourPageHeader(hIdx){
+      const bandTop = margin;
+      const bandCenterY = bandTop + BAND_H/2;
+
+      if(radioLogo){
+        const h = RADIO_LOGO_H;
+        const w = h * (radioLogo.ratio || 1.8);
+        try{ doc.addImage(radioLogo.dataUrl, "PNG", margin, bandCenterY - h/2, w, h); }catch(e){}
+      }
+      if(emissionLogo){
+        const h = EMISSION_LOGO_H;
+        const w = h * (emissionLogo.ratio || 1.8);
+        try{ doc.addImage(emissionLogo.dataUrl, "PNG", pageWidth - margin - w, bandCenterY - h/2, w, h); }catch(e){}
+      }
+
+      let ty = bandTop + 20;
+      doc.setFont(undefined, "bold"); doc.setFontSize(15); doc.setTextColor(20,22,28);
+      doc.text(state.name, pageWidth/2, ty, { align:"center" });
+
+      if(state.claim){
+        ty += 15;
+        doc.setFont(undefined, "italic"); doc.setFontSize(10.5); doc.setTextColor(100,104,116);
+        doc.text(state.claim, pageWidth/2, ty, { align:"center" });
+      }
+
+      ty += 15;
+      doc.setFont(undefined, "normal"); doc.setFontSize(9.5); doc.setTextColor(150,150,158);
+      const dateHourLine = formatDateFr(state.date) + "   ·   " + hourClockLabel(hIdx);
+      doc.text(dateHourLine, pageWidth/2, ty, { align:"center" });
+
+      doc.setDrawColor(225,227,235);
+      doc.setLineWidth(0.75);
+      doc.line(margin, bandTop + BAND_H, pageWidth - margin, bandTop + BAND_H);
+    }
+
+    function drawFooter(){
+      const now = new Date();
+      const stamp = "Édité le " + now.toLocaleDateString("fr-FR") + " à " + now.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"});
+      doc.setFontSize(8.5); doc.setTextColor(140,140,150); doc.setFont(undefined,"normal");
+      doc.text(stamp, pageWidth/2, pageHeight-20, { align:"center" });
+    }
+
+    const types = allTypes();
+    const emojiCache = {};
+    const HEURE_W = 74, DUR_W = 55;
+    const TABLE_MARGIN_LEFT = margin + 10; // laisse la place pour le liseré de couleur du type de bloc
+    const CONTENT_PAD_X = 12, CONTENT_PAD_Y = 12;
+    const contentColWidth = contentWidth - 10 - HEURE_W - DUR_W;
+    const PASTEL_BY_TYPE = {
+      musique: [253,241,248],
+      pub: [244,245,248],
+      flash: [244,245,248]
+    };
+    const ICON_W = 15, ICON_GAP = 6;
+    const availableTextWidth = contentColWidth - CONTENT_PAD_X*2 - ICON_W - ICON_GAP - (equipeLogo ? 30 : 0);
+
+    function buildContentLines(block){
+      const lines = [];
+      if(block.type === "musique"){
+        if(block.musicTitle){
+          lines.push({ text: (block.musicArtist||"").toUpperCase() || "ARTISTE INCONNU", size:11.5, bold:true, color:[24,26,32], gapAfter:3 });
+          doc.setFont(undefined,"normal"); doc.setFontSize(10);
+          const wrapped = doc.splitTextToSize(toTitleCase(block.musicTitle), availableTextWidth);
+          wrapped.forEach((l,i)=> lines.push({ text:l, size:10, bold:false, italic:false, color:[120,124,136], gapAfter: i===wrapped.length-1?0:2 }));
+        } else {
+          lines.push({ text: block.name||"Musique", size:11, bold:false, italic:true, color:[170,170,178], gapAfter:0 });
+        }
+      } else {
+        lines.push({ text: block.name || types[block.type]?.label || "", size:11.5, bold:true, color:[24,26,32], gapAfter: block.notes ? 5 : 0 });
+        if(block.notes){
+          doc.setFont(undefined,"normal"); doc.setFontSize(9.5);
+          const wrapped = doc.splitTextToSize(block.notes, availableTextWidth);
+          wrapped.forEach((l,i)=> lines.push({ text:l, size:9.5, bold:false, color:[95,99,112], gapAfter: i===wrapped.length-1?0:2 }));
+        }
+      }
+      return lines;
+    }
+    function lineHeightFor(l){ return l.size + 3.5; }
+    function contentHeightFor(lines){
+      let h = CONTENT_PAD_Y*2;
+      lines.forEach(l=>{ h += lineHeightFor(l) + l.gapAfter; });
+      return h;
+    }
+
+    state.hours.forEach((hour, hIdx)=>{
+      if(hIdx > 0) doc.addPage();
+      const startPage = doc.internal.getNumberOfPages();
+
+      const body = [];
+      const rowMeta = [];
+      let cursor = 0;
+      if(!hour.blocks.length){
+        body.push([{content:"Aucun bloc programmé pour cette heure", colSpan:3}]);
+        rowMeta.push({ kind:"empty" });
+      }
+      hour.blocks.forEach((block)=>{
+        const startLabel = absStartHMS(hIdx, cursor);
+        cursor += block.duration;
+        const t = types[block.type] || {label:block.type, color:"#9aa0b0"};
+        const lines = buildContentLines(block);
+        body.push([ "", "", fmtMMSS(block.duration) ]);
+        rowMeta.push({ kind:"block", blockType:block.type, color:t.color, emoji:t.emoji||"🔖", startLabel, lines, contentH: contentHeightFor(lines) });
+      });
+
+      doc.autoTable({
+        body: body,
+        startY: headerHeight,
+        margin: { top: headerHeight, left: TABLE_MARGIN_LEFT, right: margin, bottom: 55 },
+        theme: "plain",
+        styles: { fontSize: 10, cellPadding: 0, textColor:[40,42,50], valign:"middle", lineWidth:0 },
+        columnStyles: {
+          0:{cellWidth:HEURE_W},
+          1:{cellWidth:contentColWidth},
+          2:{halign:"right", cellWidth:DUR_W}
+        },
+        didParseCell: function(data){
+          if(data.section!=="body") return;
+          const meta = rowMeta[data.row.index];
+          if(!meta) return;
+          if(meta.kind==="empty"){
+            data.cell.styles.fontStyle = "italic";
+            data.cell.styles.textColor = [170,170,178];
+            data.cell.styles.halign = "center";
+            data.cell.styles.cellPadding = 16;
+            return;
+          }
+          data.cell.styles.minCellHeight = meta.contentH;
+          data.cell.styles.fillColor = PASTEL_BY_TYPE[meta.blockType] || [255,255,255];
+          if(data.column.index===2){
+            data.cell.styles.fontSize = 9.5;
+            data.cell.styles.textColor = [150,150,158];
+            data.cell.styles.cellPadding = { top:0, bottom:0, left:6, right:12 };
+          }
+        },
+        didDrawCell: function(data){
+          if(data.section!=="body") return;
+          const meta = rowMeta[data.row.index];
+          if(!meta || meta.kind!=="block") return;
+
+          // liseré de couleur du type de bloc, dans la marge réservée à gauche de la table
+          const rgb = hexToRgb(meta.color);
+          doc.setFillColor(rgb[0], rgb[1], rgb[2]);
+          doc.rect(margin, data.cell.y, 4, data.cell.height, "F");
+
+          if(data.column.index===0){
+            // badge horaire, fuchsia, centré verticalement
+            const badgeW = HEURE_W - 14, badgeH = 22;
+            const bx = data.cell.x + (data.cell.width - badgeW)/2;
+            const by = data.cell.y + (data.cell.height - badgeH)/2;
+            doc.setFillColor(230,0,126);
+            doc.roundedRect(bx, by, badgeW, badgeH, 6, 6, "F");
+            doc.setFont(undefined,"bold"); doc.setFontSize(10.5); doc.setTextColor(255,255,255);
+            doc.text(meta.startLabel, bx+badgeW/2, by+badgeH/2+3.5, { align:"center" });
+          }
+
+          if(data.column.index===1){
+            try{
+              const durl = emojiToDataUrl(meta.emoji, emojiCache);
+              const iconY = data.cell.y + CONTENT_PAD_Y - 2;
+              doc.addImage(durl, "PNG", data.cell.x + CONTENT_PAD_X, iconY, ICON_W, ICON_W);
+            }catch(e){}
+            const textX = data.cell.x + CONTENT_PAD_X + ICON_W + ICON_GAP;
+            let ty = data.cell.y + CONTENT_PAD_Y + (meta.lines[0] ? meta.lines[0].size*0.8 : 0);
+            meta.lines.forEach(l=>{
+              doc.setFont(undefined, l.italic ? "italic" : (l.bold ? "bold" : "normal"));
+              doc.setFontSize(l.size);
+              doc.setTextColor(l.color[0], l.color[1], l.color[2]);
+              doc.text(l.text, textX, ty);
+              ty += lineHeightFor(l) + l.gapAfter;
+            });
+            if(meta.blockType==="talk" && equipeLogo){
+              const h = Math.min(22, data.cell.height-10);
+              const w = h * (equipeLogo.ratio || 1);
+              try{ doc.addImage(equipeLogo.dataUrl, "PNG", data.cell.x + data.cell.width - w - 8, data.cell.y + (data.cell.height-h)/2, w, h); }catch(e){}
+            }
+          }
+        },
+        didDrawPage: function(){
+          drawHourPageHeader(hIdx);
+        }
+      });
+
+      // Pied de page dessiné après coup, page par page, pour ne jamais chevaucher le contenu du tableau
+      const endPage = doc.internal.getNumberOfPages();
+      for(let p=startPage; p<=endPage; p++){
+        doc.setPage(p);
+        drawFooter();
+      }
+    });
+
+    doc.save(safeFileName(state.name) + "_" + (state.date||"") + ".pdf");
+  }
+  // jsPDF ne peut pas afficher les emojis en texte (polices standard sans glyphes couleur) :
+  // on les fait dessiner par le navigateur lui-même sur un canvas (qui sait rendre les emojis),
+  // puis on insère le résultat comme une petite image dans le PDF.
+  function emojiToDataUrl(emoji, cache){
+    if(cache[emoji]) return cache[emoji];
+    const size = 64;
+    const canvas = document.createElement("canvas");
+    canvas.width = size; canvas.height = size;
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0,0,size,size);
+    ctx.font = Math.round(size*0.78) + "px 'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(emoji, size/2, size/2 + size*0.06);
+    const url = canvas.toDataURL("image/png");
+    cache[emoji] = url;
+    return url;
+  }
+
+  function hexToRgb(hex){
+    if(!hex) return [154,160,176];
+    const h = hex.replace("#","");
+    const n = parseInt(h.length===3 ? h.split("").map(c=>c+c).join("") : h, 16);
+    return [(n>>16)&255, (n>>8)&255, n&255];
+  }
+  function safeFileName(s){ return (s||"conducteur").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-zA-Z0-9-_]+/g,"_"); }
+
+  // ---------------- events ----------------
+  function bindEvents(){
+    document.getElementById("showNameInput").addEventListener("change", e=>{ state.name = e.target.value.trim() || "Émission sans titre"; });
+    document.getElementById("claimInput").addEventListener("change", e=>{ state.claim = e.target.value.trim(); });
+    document.getElementById("showDate").addEventListener("change", e=>{ state.date = e.target.value; });
+    document.getElementById("startHour").addEventListener("change", e=>{
+      const v = e.target.value; state.startHour = v===""?null:Math.max(0,Math.min(23,parseInt(v,10)));
+      renderTargetHourSelect(); renderRundown();
+    });
+    document.getElementById("startMinute").addEventListener("change", e=>{
+      const v = e.target.value; state.startMinute = v===""?0:Math.max(0,Math.min(59,parseInt(v,10)));
+      renderTargetHourSelect(); renderRundown();
+    });
+    document.getElementById("btnResize").addEventListener("click", ()=> openSetupModal(state));
+    document.getElementById("btnNew").addEventListener("click", ()=>{
+      if(!confirm("Créer une nouvelle émission ? Les modifications non enregistrées seront perdues.")) return;
+      state = null; openSetupModal(null);
+    });
+
+    document.getElementById("btnAddBlock").addEventListener("click", addBlock);
+
+    document.getElementById("rubriqueSelect").addEventListener("change", onRubriqueSelected);
+    document.getElementById("btnRubriqueSave").addEventListener("click", saveRubrique);
+    document.getElementById("btnRubriqueDelete").addEventListener("click", deleteRubrique);
+    document.getElementById("btnRubriqueInsert").addEventListener("click", insertRubrique);
+
+    document.getElementById("btnToggleLogos").addEventListener("click", e=>{
+      const slots = document.getElementById("logoSlots");
+      const collapsed = slots.style.display === "none";
+      slots.style.display = collapsed ? "" : "none";
+      e.target.textContent = collapsed ? "Replier" : "Déplier";
+    });
+
+    document.getElementById("logoFileInput").addEventListener("change", async e=>{
+      const file = e.target.files[0];
+      e.target.value = "";
+      if(!file || !pendingLogoRole) return;
+      try{
+        const processed = await processLogoFile(file);
+        state.logos[pendingLogoRole] = { id: uid("logo"), name: file.name, dataUrl: processed.dataUrl, ratio: processed.ratio };
+        pendingLogoRole = null;
+        renderLogoSlots(); updateBrandLogo(); renderRundown();
+      }catch(err){
+        alert("Impossible de traiter cette image : " + err.message);
+      }
+    });
+
+    document.getElementById("btnImportMusicPdf").addEventListener("click", ()=> document.getElementById("musicFileInput").click());
+    document.getElementById("musicFileInput").addEventListener("change", e=>{
+      const file = e.target.files[0]; if(file) importMusicFile(file);
+      e.target.value = "";
+    });
+    document.getElementById("btnAutoAssign").addEventListener("click", autoAssignMusic);
+
+    document.getElementById("tplSelect").addEventListener("change", e=> loadTemplate(e.target.value));
+    document.getElementById("btnTplSave").addEventListener("click", ()=> saveTemplate(false));
+    document.getElementById("btnTplSaveAs").addEventListener("click", ()=> saveTemplate(true));
+    document.getElementById("btnTplDelete").addEventListener("click", deleteTemplate);
+
+    document.getElementById("cdtSelect").addEventListener("change", e=> loadConducteur(e.target.value));
+    document.getElementById("btnCdtSave").addEventListener("click", saveConducteur);
+    document.getElementById("btnCdtDelete").addEventListener("click", deleteConducteur);
+
+    document.getElementById("btnExportJson").addEventListener("click", exportJson);
+    document.getElementById("btnImportJson").addEventListener("click", ()=> document.getElementById("importFileInput").click());
+    document.getElementById("importFileInput").addEventListener("change", e=>{
+      const file = e.target.files[0]; if(file) importJson(file);
+      e.target.value = "";
+    });
+
+    document.getElementById("btnPdf").addEventListener("click", exportPdf);
+  }
+
+  init();
+  document.getElementById("nameInput").value = allTypes()[activeType].label;
+})();
+</script>
+</body>
+</html>

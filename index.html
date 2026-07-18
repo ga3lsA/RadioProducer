@@ -70,6 +70,11 @@
   .hdr-section select{max-width:150px;}
   .spacer{flex:1;}
 
+  .view-nav{display:flex; gap:2px; padding:0 20px; background:var(--panel); border-bottom:1px solid var(--line);}
+  .view-tab{background:transparent; border:none; border-bottom:3px solid transparent; color:var(--muted); font-weight:700; font-size:13px; padding:12px 16px; cursor:pointer; border-radius:0;}
+  .view-tab:hover{color:var(--text); border-color:transparent;}
+  .view-tab.active{color:var(--amber); border-bottom-color:var(--amber);}
+
   .layout{display:grid; grid-template-columns:380px 1fr; gap:0; align-items:start;}
   @media (max-width:1050px){ .layout{grid-template-columns:1fr;} }
 
@@ -77,6 +82,8 @@
   @media (max-width:1050px){ .tools-pane{position:static; max-height:none;} }
 
   .card{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:16px;}
+  .bo-card-highlight{background:var(--amber-dim); border:1px solid var(--amber);}
+  .bo-card-highlight h2{color:var(--amber);}
   .card h2{font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin:0 0 12px; display:flex; align-items:center; justify-content:space-between;}
 
   .type-tabs{display:flex; gap:6px; margin-bottom:12px; flex-wrap:wrap;}
@@ -161,6 +168,15 @@
   .block-row input.name{background:transparent; border:1px solid transparent; color:#1c1f28; border-radius:6px; padding:5px 6px; font-size:14.5px; font-weight:600; width:100%;}
   .block-row input.name:focus{outline:none; border-color:#d5d8e2; background:#f6f7fb;}
   .block-row .music-fields{display:flex; flex-direction:column; gap:2px;}
+  .block-row .music-title-row{display:flex; align-items:center; gap:6px;}
+  .block-row .music-title-row .title{flex:1;}
+  .block-row .cache-ecran-toggle{
+    flex:none; background:transparent; border:none; cursor:pointer; font-size:15px; line-height:1;
+    padding:2px 4px; border-radius:5px; opacity:.3; filter:grayscale(1);
+    transition:opacity .15s, filter .15s, background .15s;
+  }
+  .block-row .cache-ecran-toggle:hover{opacity:.6;}
+  .block-row .cache-ecran-toggle.active{opacity:1; filter:none; background:#fdf1f8;}
   .block-row .music-fields input{background:transparent; border:1px solid transparent; color:#1c1f28; border-radius:4px; padding:3px 5px; font-size:13.5px; font-weight:600; width:100%;}
   .block-row .music-fields input.artist{color:#6b7280; font-style:italic; font-weight:500; font-size:12.5px;}
   .block-row .music-fields input:focus{outline:none; border-color:#d5d8e2; background:#f6f7fb;}
@@ -192,12 +208,12 @@
   input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-outer-spin-button{-webkit-appearance:none; margin:0;}
   input[type="number"]{-moz-appearance:textfield;}
 
-  .brand-radio-logo{background:#fff; border-radius:8px; padding:4px 8px; display:flex; align-items:center; height:36px;}
-  .brand-radio-logo img{height:100%; max-width:120px; object-fit:contain;}
+  .brand-radio-logo{background:#fff; border-radius:8px; padding:6px 10px; display:flex; align-items:center; height:56px;}
+  .brand-radio-logo img{height:100%; max-width:180px; object-fit:contain;}
 
   ::-webkit-scrollbar{width:8px;} ::-webkit-scrollbar-thumb{background:#333849; border-radius:4px;}
 
-  .modal-overlay{position:fixed; inset:0; background:rgba(8,9,13,0.72); z-index:80; display:flex; align-items:center; justify-content:center; padding:20px;}
+  .modal-overlay{position:fixed; inset:0; background:rgba(8,9,13,0.72); z-index:600; display:flex; align-items:center; justify-content:center; padding:20px;}
   .modal-card{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:22px; width:100%; max-width:400px; box-shadow:0 12px 40px rgba(0,0,0,.4);}
   .modal-card h3{margin:0 0 8px; font-size:16px;}
   .modal-sub{font-size:12px; color:var(--muted); line-height:1.5; margin:0 0 16px;}
@@ -205,6 +221,96 @@
   .modal-field label{font-size:12.5px; color:var(--text);}
   .modal-field input{width:140px; text-align:center; background:var(--panel-2); border:1px solid var(--line); color:var(--text); border-radius:8px; padding:7px; font-family:'Space Mono',monospace; font-size:13px;}
   .modal-actions{display:flex; justify-content:flex-end; gap:8px; margin-top:6px;}
+
+  /* ===== Gestion des Best Of ===== */
+  .bo-module-row{
+    display:flex; align-items:flex-start; gap:10px;
+    background:#ffffff; border:1px solid #e2e4ec; border-radius:8px; padding:10px 12px; margin-bottom:8px;
+  }
+  .bo-module-row .bo-hour-badge{flex:0 0 56px; background:var(--panel-2); color:var(--muted); font-family:'Space Mono',monospace; font-size:10.5px; text-align:center; border-radius:6px; padding:4px 2px;}
+  .bo-module-row .bo-title-wrap{flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:3px; align-self:center;}
+  .bo-module-row .bo-title{font-size:12.5px; font-weight:600; color:#1c1f28; cursor:pointer; line-height:1.3;}
+  .bo-module-row .bo-title:hover{color:var(--amber);}
+  .bo-module-row .bo-meta{font-size:10px; color:#8a8f9e;}
+  .bo-module-row .bo-dur{flex:0 0 60px; align-self:center; font-family:'Space Mono',monospace; font-size:11px; color:#6b7280; text-align:center;}
+  .bo-module-row .bo-add{flex:0 0 34px; align-self:center; height:34px; background:var(--amber); color:#fff; border:none; border-radius:6px; font-size:16px; cursor:pointer;}
+  .bo-module-row[draggable="true"]{cursor:grab;}
+  .bo-search-wrap{display:flex; flex-direction:column; gap:6px; margin-bottom:10px;}
+  .bo-search-wrap input, .bo-search-wrap select{background:var(--panel-2); border:1px solid var(--line); color:var(--text); border-radius:8px; padding:7px 9px; font-size:12.5px;}
+  .bo-filter-row{display:flex; gap:6px; min-width:0;}
+  .bo-filter-row select{flex:1; min-width:0; text-overflow:ellipsis; white-space:nowrap; overflow:hidden;}
+  .bo-list{max-height:340px; overflow-y:auto; padding-right:2px;}
+  .bo-count-hint{font-size:10.5px; color:var(--muted); margin-bottom:8px;}
+
+  .bo-toolbar{display:flex; justify-content:flex-end; margin-bottom:14px;}
+  .bo-day-separator{
+    font-size:14px; font-weight:700; color:var(--amber); text-transform:uppercase; letter-spacing:.04em;
+    padding:14px 4px 8px; border-bottom:2px solid var(--amber-dim); margin-bottom:14px;
+  }
+  .bo-hour-card{background:var(--panel); border:1px solid var(--line); border-radius:14px; margin-bottom:18px; overflow:visible;}
+  .bo-hour-head{display:flex; align-items:center; gap:10px; padding:10px 16px; border-bottom:1px solid var(--line); background:var(--panel-2); position:sticky; top:var(--header-h, 73px); z-index:15; border-radius:14px 14px 0 0; flex-wrap:wrap;}
+  .bo-hour-badge-lg{background:var(--amber); color:#fff; font-weight:700; font-family:'Space Mono',monospace; font-size:15px; padding:7px 14px; border-radius:10px;}
+  .bo-hour-count{font-size:12px; color:var(--muted); font-family:'Space Mono',monospace;}
+  .bo-hour-count b{color:var(--text);}
+  .bo-hour-count.full b{color:#39c98a;}
+  .bo-autofill-btn{margin-left:auto;}
+  .bo-hour-body{padding:10px 12px; display:flex; flex-direction:column; gap:6px; min-height:44px;}
+  .bo-hour-body.drop-target{outline:2px dashed var(--amber); outline-offset:-2px;}
+  .bo-hour-empty{color:var(--muted); font-size:12px; text-align:center; padding:16px; border:1px dashed var(--line); border-radius:8px;}
+
+  .bo-placed-row{
+    display:flex; align-items:flex-start; gap:10px;
+    background:#ffffff; border:1px solid #e2e4ec; border-radius:8px; padding:11px 13px;
+  }
+  .bo-placed-row.conflict{border:1.5px dashed var(--danger);}
+  .bo-placed-row .bo-hour-badge{flex:0 0 74px;}
+  .bo-placed-row .bo-handle{flex:0 0 20px; align-self:center; cursor:grab; color:#9aa0b0; text-align:center;}
+  .bo-placed-row .bo-info-wrap{flex:1 1 auto; min-width:0;}
+  .bo-placed-row .bo-title{font-size:13.5px; font-weight:700; color:#1c1f28; cursor:pointer;}
+  .bo-placed-row .bo-title:hover{color:var(--amber);}
+  .bo-placed-row .bo-sub{font-size:10.5px; color:#8a8f9e; margin-top:1px;}
+  .bo-placed-row .bo-conflict-flag{color:var(--danger); font-size:10px; font-weight:700;}
+  .bo-rubrique-badge{display:inline-block; background:#eef1ff; color:#4f5fd6; font-size:9.5px; font-weight:700; border-radius:10px; padding:2px 8px; margin-left:8px; vertical-align:middle; text-transform:uppercase; letter-spacing:.02em;}
+  .bo-module-row .bo-rubrique-badge, .bo-placed-row .bo-rubrique-badge{margin-left:0; margin-top:2px;}
+  .bo-grid-table{border-collapse:collapse; width:100%;}
+  .bo-grid-table td{padding:4px 6px;}
+  .bo-grid-hourcell{font-family:'Space Mono',monospace; font-size:12px; font-weight:700; color:var(--text); white-space:nowrap; padding-right:10px !important;}
+  .bo-grid-table select{background:var(--panel-2); border:1px solid var(--line); color:var(--text); border-radius:6px; padding:5px 6px; font-size:11px; min-width:130px;}
+  .bo-placed-row .bo-dur{flex:0 0 90px; align-self:center; font-family:'Space Mono',monospace; font-size:12px; color:#3b3f4c; text-align:center; font-weight:700;}
+  .bo-placed-row .bo-row-actions{flex:0 0 30px; align-self:center; display:flex; flex-direction:column; align-items:center; gap:1px;}
+  .bo-placed-row .bo-move-up, .bo-placed-row .bo-move-down{background:transparent; border:none; color:#b8bcc8; font-size:9px; cursor:pointer; padding:1px 4px; line-height:1;}
+  .bo-placed-row .bo-move-up:hover, .bo-placed-row .bo-move-down:hover{color:var(--amber);}
+  .bo-placed-row .bo-del{background:transparent; border:none; color:#9aa0b0; font-size:16px; cursor:pointer;}
+  .bo-placed-row .bo-del:hover{color:var(--danger);}
+
+  .bo-month-nav{display:flex; align-items:center; justify-content:center; gap:14px; margin:10px 0 8px; flex-wrap:wrap;}
+  .bo-month-cal{display:grid; grid-template-columns:repeat(7,1fr); gap:4px;}
+  .bo-month-cal .bo-month-hd{font-weight:700; text-align:center; color:var(--muted); font-size:10.5px; padding:3px 0;}
+  .bo-month-cal .bo-month-cell{
+    position:relative; background:var(--panel-2); border-radius:6px; height:46px;
+    display:flex; align-items:flex-start; justify-content:flex-start; padding:4px;
+  }
+  .bo-month-cal .bo-month-cell.empty{background:transparent;}
+  .bo-month-cal .bo-month-cell.hit{background:var(--amber-dim);}
+  .bo-month-cal .bo-month-daynum{font-size:10.5px; color:var(--text);}
+  .bo-month-cal .bo-month-cell.hit .bo-month-daynum{color:var(--text); font-weight:700;}
+  .bo-month-cal .bo-month-dots{position:absolute; bottom:5px; right:5px; display:flex; gap:3px;}
+  .bo-month-cal .bo-month-dot{width:7px; height:7px; border-radius:50%; display:inline-block;}
+  .bo-month-cal .bo-dot-initial{background:#4f8ef7;}
+  .bo-month-cal .bo-dot-rediff{background:var(--amber);}
+  .bo-cal-legend{display:flex; gap:16px; margin-top:10px; font-size:10.5px; color:var(--muted);}
+  .bo-cal-legend span{display:flex; align-items:center; gap:5px;}
+  .bo-cal-legend .bo-month-dot{position:static;}
+
+  .bo-list-expand{margin-left:6px;}
+  .bo-fullscreen-backdrop{position:fixed; inset:0; background:rgba(8,9,13,0.72); z-index:499;}
+  .card.bo-fullscreen{
+    position:fixed; top:5vh; left:50%; transform:translateX(-50%);
+    width:min(760px, 92vw); max-height:90vh; z-index:500;
+    border-radius:14px; margin:0; overflow-y:auto; padding:22px 26px;
+    background:var(--panel); box-shadow:0 20px 60px rgba(0,0,0,.5);
+  }
+  .card.bo-fullscreen .bo-list{max-height:calc(90vh - 220px);}
 
   /* ===== Mobile (téléphone) ===== */
   @media (max-width:700px){
@@ -257,6 +363,33 @@
 
     .logo-slot{flex-wrap:wrap;}
     .logo-slot .actions{flex-direction:row;}
+
+    /* ---- Best Of ---- */
+    .view-tab{font-size:11.5px; padding:10px 10px;}
+    .bo-toolbar{justify-content:stretch;}
+    .bo-toolbar button{width:100%;}
+    .bo-day-separator{font-size:12px; padding:10px 2px 6px;}
+
+    .bo-hour-head{padding:8px 10px; gap:8px;}
+    .bo-hour-badge-lg{font-size:12px; padding:5px 8px;}
+    .bo-hour-count{font-size:10px;}
+    .bo-autofill-btn{font-size:0; padding:6px 8px;}
+    .bo-autofill-btn::before{content:"🎲"; font-size:14px;}
+
+    .bo-module-row, .bo-placed-row{gap:6px; padding:8px 9px;}
+    .bo-module-row .bo-hour-badge, .bo-placed-row .bo-hour-badge{flex-basis:42px; font-size:9px; padding:4px 2px;}
+    .bo-placed-row .bo-handle{display:none;}
+    .bo-module-row .bo-title, .bo-placed-row .bo-title{font-size:12px;}
+    .bo-module-row .bo-meta, .bo-placed-row .bo-sub{font-size:9px;}
+    .bo-module-row .bo-dur, .bo-placed-row .bo-dur{flex-basis:44px; font-size:10px;}
+    .bo-module-row .bo-add{flex-basis:28px; height:28px;}
+    .bo-rubrique-badge{font-size:8.5px; padding:1px 6px;}
+
+    .bo-fiche-cal, .bo-month-cal{font-size:8px;}
+    .bo-month-cal .bo-month-cell{height:32px;}
+    .bo-grid-table select{min-width:100px; font-size:10px;}
+
+    .card.bo-fullscreen{top:2vh; width:96vw; max-height:96vh; padding:14px 16px;}
   }
 </style>
 </head>
@@ -315,6 +448,12 @@
   </div>
 </header>
 
+<div class="view-nav">
+  <button class="view-tab active" id="navConducteur">🗓️ Conducteur</button>
+  <button class="view-tab" id="navBestOf">📼 Best Of</button>
+</div>
+
+<div id="conducteurView">
 <div class="layout">
   <div class="tools-pane">
 
@@ -376,8 +515,8 @@
     </div>
 
     <div class="card">
-      <h2>Logos &amp; illustrations <button class="small ghost" id="btnToggleLogos" style="padding:3px 9px; font-size:10.5px;">Replier</button></h2>
-      <div id="logoSlots"></div>
+      <h2>Logos &amp; illustrations <button class="small ghost" id="btnToggleLogos" style="padding:3px 9px; font-size:10.5px;">Déplier</button></h2>
+      <div id="logoSlots" style="display:none;"></div>
       <input type="file" id="logoFileInput" accept="image/png,image/jpeg" style="display:none">
     </div>
 
@@ -400,6 +539,175 @@
 
   <div class="rundown-pane" id="rundownPane"></div>
 </div>
+</div>
+
+<div id="bestOfView" style="display:none;">
+  <div class="layout">
+    <div class="tools-pane">
+
+      <div class="card">
+        <h2>Émission</h2>
+        <p class="modal-sub" style="margin:0 0 10px;">Chaque émission a sa propre base de modules, ses logos et ses Best Of enregistrés — utile si l'outil sert plusieurs émissions ou plusieurs radios.</p>
+        <div class="form-row">
+          <div class="field" style="flex:2;">
+            <select id="boEmissionSelect"></select>
+          </div>
+        </div>
+        <div class="submit-row" style="display:flex; gap:6px;">
+          <button class="small" id="btnNewEmission" style="flex:1;">+ Nouvelle</button>
+          <button class="small" id="btnRenameEmission" title="Renommer">✎</button>
+          <button class="small danger-txt" id="btnDeleteEmission" title="Supprimer l'émission">🗑</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Logos &amp; illustrations <button class="small ghost" id="btnToggleBoLogos" style="padding:3px 9px; font-size:10.5px;">Déplier</button></h2>
+        <div id="boLogoSlots" style="display:none;"></div>
+        <input type="file" id="boLogoFileInput" accept="image/png,image/jpeg" style="display:none">
+      </div>
+
+      <div class="card">
+        <h2>Configuration du Best Of</h2>
+        <div class="form-row">
+          <div class="field" style="flex:2;">
+            <label>Nom</label>
+            <input type="text" id="boName" value="Best Of">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="field">
+            <label>Date de début</label>
+            <input type="date" id="boDate">
+          </div>
+          <div class="field">
+            <label>Nombre de jours</label>
+            <input type="number" id="boNumDays" min="1" max="31" value="1">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="field">
+            <label>Heure de début</label>
+            <input type="number" id="boStartHour" min="0" max="23" placeholder="hh">
+          </div>
+          <div class="field">
+            <label>Nombre d'heures / jour</label>
+            <input type="number" id="boNumHours" min="1" max="18" value="4">
+          </div>
+          <div class="field">
+            <label>Modules / heure</label>
+            <input type="number" id="boModulesPerHour" min="1" max="20" value="6">
+          </div>
+        </div>
+        <div class="submit-row" style="display:flex; gap:8px;">
+          <button class="primary small" id="btnBoCreate" style="flex:1;">Créer / Reconfigurer</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Best Of enregistrés</h2>
+        <div class="form-row">
+          <div class="field" style="flex:2;">
+            <select id="boSelect"><option value="">— Best Of enregistrés —</option></select>
+          </div>
+        </div>
+        <div class="submit-row" style="display:flex; gap:8px;">
+          <button class="small" id="btnBoSave" style="flex:1;">📅 Enregistrer</button>
+          <button class="small danger-txt" id="btnBoDelete">🗑</button>
+        </div>
+        <button class="primary small" id="btnBoPdf" style="width:100%; margin-top:8px;">📄 Export PDF</button>
+      </div>
+
+      <div class="card bo-card-highlight">
+        <h2>Ajouter un module</h2>
+        <div id="addModuleForm">
+          <div class="form-row">
+            <div class="field" style="flex:2;"><label>Titre *</label><input type="text" id="moTitle" placeholder="Titre du module"></div>
+          </div>
+          <div class="form-row">
+            <div class="field"><label>Durée</label><div class="dur-field"><input type="number" id="moDurMin" min="0" max="60" value="2"><span>:</span><input type="number" id="moDurSec" min="0" max="59" value="0"></div></div>
+            <div class="field"><label>ID Zenon</label><input type="text" id="moZenon" placeholder="ex: 498A989"></div>
+          </div>
+          <div class="form-row">
+            <div class="field"><label>Date initiale</label><input type="date" id="moDate"></div>
+            <div class="field"><label>Heure initiale</label><input type="number" id="moHour" min="0" max="23" placeholder="hh"></div>
+          </div>
+          <div class="form-row">
+            <div class="field" style="flex:2;"><label>Tags (séparés par des virgules)</label><input type="text" id="moTags" placeholder="humour, invité, jeu..."></div>
+            <div class="field"><label>Rubrique</label><select id="moRubrique"><option value="">— Auto —</option></select></div>
+          </div>
+          <div class="submit-row"><button class="primary small" id="btnAddModule">+ Ajouter le module</button></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Rubriques récurrentes <button class="small ghost" id="btnToggleRubriquesCard" style="padding:3px 9px; font-size:10.5px;">Déplier</button></h2>
+        <div id="rubriquesCardBody" style="display:none;">
+        <p class="modal-sub" style="margin:0 0 10px;">Associe chaque module à sa rubrique (basé sur le titre), affiche un badge dans les fiches et le conducteur, et empêche la même rubrique de repasser à moins de 2h d'intervalle lors du remplissage automatique.</p>
+        <button class="small" id="btnAutoAssignRubriques" style="width:100%; margin-bottom:10px;">🔗 Associer les rubriques automatiquement</button>
+        <div class="form-row">
+          <div class="field" style="flex:2;">
+            <label>Nouvelle rubrique</label>
+            <input type="text" id="newRubriqueName" placeholder="ex: LES ANNIVERSAIRES">
+          </div>
+          <button class="small" id="btnAddRubrique" style="align-self:flex-end;">+ Ajouter</button>
+        </div>
+        <div class="form-row" id="customRubriqueRow" style="display:none;">
+          <div class="field" style="flex:2;">
+            <label>Rubriques personnalisées</label>
+            <select id="customRubriqueSelect"></select>
+          </div>
+          <button class="small danger-txt" id="btnDeleteRubrique" style="align-self:flex-end;">🗑</button>
+        </div>
+        <div class="form-row">
+          <div class="field" style="flex:2;">
+            <label>Grille de programmation (optionnel)</label>
+            <select id="boGridSelect"><option value="">— Aucune (libre) —</option></select>
+          </div>
+        </div>
+        <div class="submit-row" style="display:flex; gap:6px; flex-wrap:wrap;">
+          <button class="small" id="btnNewGrid" style="flex:1;">+ Nouvelle grille</button>
+          <button class="small" id="btnEditGrid">✎ Éditer</button>
+          <button class="small danger-txt" id="btnDeleteGrid">🗑</button>
+        </div>
+        <button class="primary small" id="btnApplyGrid" style="width:100%; margin-top:8px;">Appliquer au Best Of</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Importer des modules (xlsx)</h2>
+        <div class="music-status" id="moduleImportStatus">Aucun fichier importé. Colonnes attendues : Titre, Durée, ID Zenon, Date Initiale (feuille "Modules Zenon"). L'heure initiale est extraite automatiquement du titre (ex. "... 9H").</div>
+        <input type="file" id="moduleFileInput" accept=".xlsx,.xls" style="display:none">
+        <button class="small" id="btnImportModules" style="width:100%;">📄 Importer un fichier de modules</button>
+      </div>
+
+      <div class="card" id="moduleDbCard">
+        <h2>Base de modules <span id="moduleDbCount" style="font-weight:400; color:var(--muted); font-size:10.5px;"></span>
+          <button class="small ghost bo-list-expand" id="btnToggleModuleFullscreen" title="Plein écran">⛶</button>
+        </h2>
+        <div class="bo-search-wrap">
+          <input type="text" id="moSearch" placeholder="Recherche titre ou tag...">
+          <div class="bo-filter-row">
+            <select id="moFilterHour"><option value="">Heure initiale : toutes</option></select>
+            <select id="moFilterRubrique"><option value="">Rubrique : toutes</option></select>
+          </div>
+          <div class="bo-filter-row">
+            <select id="moSortBy">
+              <option value="title">Trier par titre</option>
+              <option value="rubrique">Trier par rubrique</option>
+            </select>
+            <select id="moTargetHour"></select>
+          </div>
+        </div>
+        <div class="bo-count-hint">Le "+" ajoute le module à l'heure sélectionnée ci-dessus. Glisser-déposer possible directement sur une heure du conducteur.</div>
+        <button class="small ghost" id="btnClearAllHistory" style="width:100%; margin-bottom:8px;">🧹 Vider l'historique de rediffusion (tous les modules)</button>
+        <div class="bo-list" id="moduleList"></div>
+      </div>
+
+    </div>
+
+    <div class="rundown-pane" id="bestOfHoursPane"></div>
+  </div>
+</div>
 
 <div id="modalRoot"></div>
 
@@ -416,6 +724,108 @@
   const CUSTOM_PALETTE = ["#39c98a","#c98a39","#8a5fd6","#d64f7a","#4fc3d6","#d6c34f"];
 
   let store = loadStore();
+  repairModuleStore();
+  migrateLegacyBestOfData();
+  let boEmissionId = null;
+  const BO_RUBRIQUES = [
+    "ANNIE DINGO","APPEL AUDITEURS","BLIND TEST VITO","BOCCOLINI","LE BOURGMESTRE","CA EXISTE OU PAS",
+    "CAUET PAIE SA TOURNEE","CELINE DION","C'EST BON A SAVOIR","CHIRAC","DAVID GUETTA","DEBRIEF TELE",
+    "DJ BABASS","HANOUNA","JEAN CASTEX","JEANQUETE","JEFF TUCHE","JT SPORT","LA 307","LA FRANCE QUI BOSSE",
+    "LA VILLA","LES CHAMPIONS","LES LENSOIS","LES MOINS GROSSES TETES","LES OBJETS QUI PARLENT",
+    "MACHINE A CAFE","MACRON","MAEVA GHENAMM","MARDI POOKIE","ON COMPTE SUR VOUS","PATRICK SEBASTIEN",
+    "PERSO","PIERRE ET MARYSE","PROD","QQEP","QUESTIONS D ENFANTS","RENAUD","SON DES RESEAUX","SONDAGE",
+    "TOP STOUF","VRAI FAUX"
+  ];
+  const BO_STOPWORDS = new Set(["LE","LA","LES","DE","DES","DU","D","UN","UNE","ET","OU","A","AU","EN","SUR","QUI","QUE","PAS","SA","SON","CE","EST","VOUS"]);
+  function normalizeForMatch(s){
+    return String(s||"")
+      .toUpperCase()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+      .replace(/['’]/g," ")
+      .replace(/[^A-Z0-9 ]/g," ")
+      .replace(/\s+/g," ")
+      .trim();
+  }
+  function significantWords(s){
+    return normalizeForMatch(s).split(" ").filter(w=> w.length>=3 && !BO_STOPWORDS.has(w));
+  }
+  function matchRubrique(title, rubriquesList){
+    const normTitle = normalizeForMatch(title);
+    if(!normTitle) return null;
+    const list = rubriquesList || BO_RUBRIQUES;
+    const sorted = list.slice().sort((a,b)=> b.length - a.length);
+    for(const r of sorted){
+      const normR = normalizeForMatch(r);
+      if(normR && normTitle.includes(normR)) return r;
+    }
+    const titleWords = new Set(normTitle.split(" "));
+    let best = null, bestWordCount = 0;
+    for(const r of sorted){
+      const words = significantWords(r);
+      if(!words.length) continue;
+      if(words.every(w=> titleWords.has(w)) && words.length > bestWordCount){
+        best = r; bestWordCount = words.length;
+      }
+    }
+    return best;
+  }
+  function addCustomRubrique(){
+    const em = requireBoEmission();
+    if(!em) return;
+    const input = document.getElementById("newRubriqueName");
+    const name = input.value.trim().toUpperCase();
+    if(!name){ alert("Indique un nom de rubrique."); return; }
+    const all = allRubriquesFor(em);
+    if(all.some(r=> r.toUpperCase() === name)){ alert("Cette rubrique existe déjà."); return; }
+    em.customRubriques.push(name);
+    persistStore();
+    input.value = "";
+    refreshAllRubriqueUi();
+    alert('Rubrique "' + name + '" ajoutée — elle apparaît désormais dans toutes les listes de rubriques de cette émission.');
+  }
+  function refreshCustomRubriqueSelect(){
+    const em = boEmission();
+    const wrap = document.getElementById("customRubriqueRow");
+    const sel = document.getElementById("customRubriqueSelect");
+    if(!em || !em.customRubriques.length){ wrap.style.display = "none"; return; }
+    wrap.style.display = "";
+    sel.innerHTML = "";
+    em.customRubriques.slice().sort((a,b)=>a.localeCompare(b)).forEach(r=>{
+      const o = document.createElement("option"); o.value=r; o.textContent=r;
+      sel.appendChild(o);
+    });
+  }
+  function deleteCustomRubrique(){
+    const em = requireBoEmission();
+    if(!em) return;
+    const sel = document.getElementById("customRubriqueSelect");
+    if(!sel.value) return;
+    if(!confirm('Supprimer la rubrique "' + sel.value + '" ? Les modules déjà associés garderont cette valeur, mais elle ne sera plus proposée.')) return;
+    em.customRubriques = em.customRubriques.filter(r=> r !== sel.value);
+    persistStore();
+    refreshAllRubriqueUi();
+  }
+  function refreshAllRubriqueUi(){
+    renderModuleFilterRubriqueSelect();
+    refreshCustomRubriqueSelect();
+    renderModuleList();
+  }
+
+  function autoAssignRubriques(){
+    const em = requireBoEmission();
+    if(!em) return;
+    const rubList = allRubriquesFor(em);
+    let assigned = 0, already = 0, unmatched = 0;
+    Object.values(em.modules).forEach(m=>{
+      if(m.rubrique){ already++; return; }
+      const r = matchRubrique(m.title, rubList);
+      if(r){ m.rubrique = r; assigned++; } else { unmatched++; }
+    });
+    persistStore();
+    renderModuleList(); renderBoHours();
+    alert("Association terminée : " + assigned + " module(s) associé(s) à une rubrique, " + already + " déjà renseigné(s), " + unmatched + " sans correspondance trouvée (à compléter manuellement si besoin).");
+  }
+
   let state = null;          // current working conducteur/template state
   let mode = { kind:null, name:null }; // kind: 'template' | 'conducteur' | null(unsaved)
   let activeType = "talk";
@@ -437,10 +847,52 @@
     if(!s.templates) s.templates = {};
     if(!s.conducteurs) s.conducteurs = {};
     if(!s.rubriques) s.rubriques = {};
+    if(!s.modules) s.modules = {};
+    if(!s.bestOf) s.bestOf = {};
+    if(!s.emissions) s.emissions = {};
     return s;
   }
   function persistStore(){
     try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(store)); }catch(e){ console.warn("Sauvegarde impossible", e); }
+  }
+
+  // Répare les modules importés avec une ancienne version bugguée de l'outil, où la clé de
+  // stockage et le champ "id" du module (référencé partout ailleurs, ex. dans les conducteurs
+  // Best Of) pouvaient différer, rendant le module introuvable une fois placé dans un conducteur.
+  function repairModuleStore(){
+    if(!store.modules) return;
+    let changed = false;
+    const repaired = {};
+    Object.keys(store.modules).forEach(key=>{
+      const m = store.modules[key];
+      if(!m) return;
+      const properId = m.id || key;
+      if(properId !== key) changed = true;
+      m.id = properId;
+      repaired[properId] = m;
+    });
+    if(changed){
+      store.modules = repaired;
+      persistStore();
+    }
+  }
+
+  // Les modules/Best Of étaient globaux avant l'introduction des "émissions" ;
+  // on les rattache une fois pour toutes à une émission par défaut pour ne rien perdre.
+  function migrateLegacyBestOfData(){
+    const hasLegacy = Object.keys(store.modules).length>0 || Object.keys(store.bestOf).length>0;
+    if(!hasLegacy || store._legacyMigrated) return;
+    const id = uid("em");
+    store.emissions[id] = {
+      id, name: "Émission (données existantes)",
+      logos: { radio:null, emission:null, equipe:null },
+      modules: store.modules,
+      bestOf: store.bestOf
+    };
+    store.modules = {};
+    store.bestOf = {};
+    store._legacyMigrated = true;
+    persistStore();
   }
 
   function uid(prefix){ return (prefix||"id") + "_" + Math.random().toString(36).slice(2,10); }
@@ -1185,10 +1637,20 @@
           }
           const mainSlot = row.querySelector(".row-main");
           if(block.type === "musique"){
-            mainSlot.innerHTML = `<div class="music-fields"><input class="title" value="${escapeHtml(block.musicTitle||'')}" placeholder="Titre"><input class="artist" value="${escapeHtml(block.musicArtist||'')}" placeholder="Artiste"></div>`;
+            mainSlot.innerHTML = `<div class="music-fields">
+              <div class="music-title-row">
+                <input class="title" value="${escapeHtml(block.musicTitle||'')}" placeholder="Titre">
+                <button class="cache-ecran-toggle${block.cacheEcran?" active":""}" title="Cache Écran : titre diffusé uniquement sur une partie du réseau">🔑</button>
+              </div>
+              <input class="artist" value="${escapeHtml(block.musicArtist||'')}" placeholder="Artiste">
+            </div>`;
             const [titleIn, artIn] = mainSlot.querySelectorAll("input");
             titleIn.addEventListener("change", ()=>{ block.musicTitle = titleIn.value; });
             artIn.addEventListener("change", ()=>{ block.musicArtist = artIn.value; });
+            mainSlot.querySelector(".cache-ecran-toggle").addEventListener("click", ()=>{
+              block.cacheEcran = !block.cacheEcran;
+              renderRundown();
+            });
           } else {
             mainSlot.innerHTML = `<input type="text" class="name" value="${escapeHtml(block.name)}">`;
             mainSlot.querySelector("input").addEventListener("change", e=>{ block.name = e.target.value; });
@@ -1424,13 +1886,20 @@
     reader.onload = ()=>{
       try{
         const incoming = JSON.parse(reader.result);
-        if(!incoming.templates && !incoming.conducteurs && !incoming.rubriques){ alert("Fichier JSON non reconnu."); return; }
+        if(!incoming.templates && !incoming.conducteurs && !incoming.rubriques && !incoming.emissions && !incoming.modules && !incoming.bestOf){ alert("Fichier JSON non reconnu."); return; }
         store.templates = Object.assign({}, store.templates, incoming.templates||{});
         store.conducteurs = Object.assign({}, store.conducteurs, incoming.conducteurs||{});
         store.rubriques = Object.assign({}, store.rubriques, incoming.rubriques||{});
+        store.emissions = Object.assign({}, store.emissions, incoming.emissions||{});
+        // compatibilité avec d'anciens exports (avant l'introduction des émissions)
+        if(incoming.modules && Object.keys(incoming.modules).length){
+          const id = uid("em");
+          store.emissions[id] = { id, name:"Émission importée", logos:{radio:null,emission:null,equipe:null}, modules:incoming.modules, bestOf:incoming.bestOf||{}, rubriqueGrids:{} };
+        }
         persistStore();
         refreshTplSelect(); refreshCdtSelect(); refreshRubriqueSelect();
-        alert("Import réussi : " + Object.keys(incoming.templates||{}).length + " modèle(s), " + Object.keys(incoming.conducteurs||{}).length + " conducteur(s), " + Object.keys(incoming.rubriques||{}).length + " rubrique(s) fusionné(s). Les logos associés à chaque modèle/conducteur sont inclus.");
+        if(typeof refreshEmissionSelect==="function"){ refreshEmissionSelect(); }
+        alert("Import réussi : " + Object.keys(incoming.templates||{}).length + " modèle(s), " + Object.keys(incoming.conducteurs||{}).length + " conducteur(s), " + Object.keys(incoming.rubriques||{}).length + " rubrique(s), " + Object.keys(incoming.emissions||{}).length + " émission(s) Best Of fusionnées.");
       }catch(e){
         alert("Erreur de lecture du fichier JSON : " + e.message);
       }
@@ -1546,7 +2015,10 @@
           lines.push({ text: (block.musicArtist||"").toUpperCase() || "ARTISTE INCONNU", size:11.5, bold:true, color:[24,26,32], gapAfter:3 });
           doc.setFont(undefined,"normal"); doc.setFontSize(10);
           const wrapped = doc.splitTextToSize(toTitleCase(block.musicTitle), availableTextWidth);
-          wrapped.forEach((l,i)=> lines.push({ text:l, size:10, bold:false, italic:false, color:[120,124,136], gapAfter: i===wrapped.length-1?0:2 }));
+          wrapped.forEach((l,i)=> lines.push({ text:l, size:10, bold:false, italic:false, color:[120,124,136], gapAfter: i===wrapped.length-1 && !block.cacheEcran ? 0 : 2 }));
+          if(block.cacheEcran){
+            lines.push({ text:"CACHE ÉCRAN", size:8.5, bold:true, color:[230,0,126], gapAfter:0 });
+          }
         } else {
           lines.push({ text: block.name||"Musique", size:11, bold:false, italic:true, color:[170,170,178], gapAfter:0 });
         }
@@ -1775,9 +2247,1230 @@
     document.getElementById("btnPdf").addEventListener("click", exportPdf);
   }
 
+  // ============================================================
+  // GESTION DES BEST OF
+  // ============================================================
+  let boState = null;
+  let boMode = { kind:null, name:null };
+  let boDrag = null;
+  let boPendingLogoRole = null;
+
+  function populateRubriqueSelect(sel, selected, emptyLabel){
+    sel.innerHTML = `<option value="">${emptyLabel || "— Aucune —"}</option>`;
+    allRubriquesFor(boEmission()).sort((a,b)=>a.localeCompare(b)).forEach(r=>{
+      const o = document.createElement("option"); o.value=r; o.textContent=r;
+      sel.appendChild(o);
+    });
+    sel.value = selected || "";
+  }
+
+  function boEmission(){
+    const em = boEmissionId ? store.emissions[boEmissionId] : null;
+    if(em && !em.rubriqueGrids) em.rubriqueGrids = {};
+    if(em && !em.customRubriques) em.customRubriques = [];
+    return em;
+  }
+  function allRubriquesFor(em){
+    return BO_RUBRIQUES.concat(em && em.customRubriques ? em.customRubriques : []);
+  }
+  function requireBoEmission(){
+    const em = boEmission();
+    if(!em) alert("Choisis ou crée d'abord une émission dans le panneau de gauche.");
+    return em;
+  }
+
+  function blankBoState(){
+    return { name:"Best Of", date: todayIso(), numDays:1, startHour:null, numHours:4, modulesPerHour:6, hours:[] };
+  }
+
+  function parseModuleDurationString(s){
+    const m = String(s||"").match(/^(\d{2}):(\d{2}):(\d{2}):(\d{3})$/);
+    if(!m) return null;
+    return parseInt(m[1],10)*3600 + parseInt(m[2],10)*60 + parseInt(m[3],10) + Math.round(parseInt(m[4],10)/1000);
+  }
+  function extractHourFromTitle(title){
+    const m = String(title||"").trim().match(/(\d{1,2})H$/);
+    if(!m) return null;
+    const h = parseInt(m[1],10);
+    return (h>=0 && h<=23) ? h : null;
+  }
+  function isoFromLocalDate(d){
+    return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+  }
+  function addDaysIso(iso, days){
+    const d = new Date(iso+"T00:00:00");
+    d.setDate(d.getDate()+days);
+    return isoFromLocalDate(d);
+  }
+  function isModuleAlreadyPlaced(moduleId){
+    if(!boState) return false;
+    return boState.hours.some(h=> h.moduleIds.includes(moduleId));
+  }
+  function daysBetweenIso(a, b){
+    const da = new Date(a+"T00:00:00"), db = new Date(b+"T00:00:00");
+    return Math.round((db-da)/86400000);
+  }
+  function moduleConflicts(mod, date, hour){
+    for(const h of mod.history){
+      const isInitial = (h.date === mod.initialDate && h.hour === mod.initialHour);
+      if(isInitial) continue; // la diffusion initiale n'est pas une rediffusion : pas de contrainte dessus
+      if(Math.abs(daysBetweenIso(h.date, date)) < 30){
+        return "rediffusé le " + h.date + " (moins d'un mois d'écart)";
+      }
+    }
+    return null;
+  }
+  function lastHistoryDate(m){
+    return m.history.reduce((mx,h)=> h.date > mx ? h.date : mx, "");
+  }
+
+  // ---- import xlsx ----
+  async function importModulesXlsx(file){
+    const statusEl = document.getElementById("moduleImportStatus");
+    const em = requireBoEmission();
+    if(!em){ statusEl.textContent = "Choisis ou crée une émission avant d'importer."; return; }
+    statusEl.textContent = "Lecture du fichier en cours…";
+    try{
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type:"array", cellDates:true });
+      const sheetName = wb.SheetNames.find(n=> n.trim().toLowerCase() === "modules zenon") || wb.SheetNames[0];
+      const ws = wb.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:null, raw:true });
+      let added = 0, updated = 0;
+      for(let i=1;i<rows.length;i++){
+        const row = rows[i]; if(!row) continue;
+        const dateInit = row[1], title = row[2], durStr = row[4], zenon = row[5];
+        if(!title) continue;
+        const duration = parseModuleDurationString(durStr) || 0;
+        const initialHour = extractHourFromTitle(title);
+        const initialDate = (dateInit instanceof Date) ? isoFromLocalDate(dateInit) : null;
+        const zenonId = zenon ? String(zenon).trim() : "";
+        let existing = zenonId ? Object.values(em.modules).find(m=>m.zenonId===zenonId) : null;
+        if(existing){
+          existing.title = String(title).trim();
+          existing.duration = duration;
+          existing.initialDate = initialDate;
+          existing.initialHour = initialHour;
+          if(initialDate && initialHour!=null && !existing.history.some(h=>h.date===initialDate && h.hour===initialHour)){
+            existing.history.push({date:initialDate, hour:initialHour});
+          }
+          updated++;
+        } else {
+          const newId = uid("mod");
+          em.modules[newId] = {
+            id: newId, title:String(title).trim(), duration, initialDate, initialHour,
+            tags:[], zenonId, rubrique: matchRubrique(title, allRubriquesFor(em)),
+            history: (initialDate && initialHour!=null) ? [{date:initialDate, hour:initialHour}] : []
+          };
+          added++;
+        }
+      }
+      persistStore();
+      statusEl.textContent = "Import terminé : " + added + " module(s) ajouté(s), " + updated + " mis à jour.";
+      renderModuleList();
+    }catch(e){
+      console.error(e);
+      statusEl.textContent = "Erreur lors de la lecture du fichier : " + e.message;
+    }
+  }
+
+  function addModuleManual(){
+    const em = requireBoEmission();
+    if(!em) return;
+    const title = document.getElementById("moTitle").value.trim();
+    if(!title){ alert("Le titre est obligatoire."); return; }
+    const min = parseInt(document.getElementById("moDurMin").value,10)||0;
+    const sec = parseInt(document.getElementById("moDurSec").value,10)||0;
+    const zenonId = document.getElementById("moZenon").value.trim();
+    const initialDate = document.getElementById("moDate").value || null;
+    const hourRaw = document.getElementById("moHour").value;
+    const initialHour = hourRaw===""?null:Math.max(0,Math.min(23,parseInt(hourRaw,10)));
+    const tags = document.getElementById("moTags").value.split(",").map(s=>s.trim()).filter(Boolean);
+    const rubriqueSel = document.getElementById("moRubrique").value;
+    const rubrique = rubriqueSel || matchRubrique(title, allRubriquesFor(em));
+    const id = uid("mod");
+    em.modules[id] = {
+      id, title, duration: min*60+sec, zenonId, initialDate, initialHour, tags, rubrique,
+      history: (initialDate && initialHour!=null) ? [{date:initialDate, hour:initialHour}] : []
+    };
+    persistStore();
+    ["moTitle","moZenon","moDate","moHour","moTags"].forEach(elId=> document.getElementById(elId).value = "");
+    document.getElementById("moDurMin").value = 2; document.getElementById("moDurSec").value = 0;
+    document.getElementById("moRubrique").value = "";
+    renderModuleList();
+  }
+
+  function deleteModule(id){
+    const em = boEmission();
+    if(!em) return false;
+    if(!confirm("Supprimer ce module de la base ? Il sera aussi retiré du Best Of en cours.\n\nCette action est définitive.")) return false;
+    delete em.modules[id];
+    if(boState) boState.hours.forEach(h=>{ h.moduleIds = h.moduleIds.filter(mid=>mid!==id); });
+    persistStore();
+    renderModuleList(); renderBoHours();
+    return true;
+  }
+
+  function clearAllRediffusionHistory(){
+    const em = requireBoEmission();
+    if(!em) return;
+    const total = Object.keys(em.modules).length;
+    if(!total){ alert("Cette émission n'a aucun module."); return; }
+    if(!confirm("Vider l'historique de rediffusion de TOUS les modules de cette émission (" + total + " module(s)) ?\n\nLa diffusion initiale de chaque module sera conservée, mais toutes les rediffusions enregistrées seront définitivement supprimées.\n\nCette action est irréversible.")) return;
+    let cleaned = 0;
+    Object.values(em.modules).forEach(m=>{
+      const before = m.history.length;
+      m.history = (m.initialDate && m.initialHour!=null) ? [{date:m.initialDate, hour:m.initialHour}] : [];
+      if(m.history.length !== before) cleaned++;
+    });
+    persistStore();
+    renderModuleList(); renderBoHours();
+    alert(cleaned + " module(s) nettoyé(s) sur " + total + ". L'historique de rediffusion est maintenant vide pour toute l'émission — seules les diffusions initiales sont conservées.");
+  }
+
+  // ---- placement ----
+  function addModuleToHour(moduleId, hIdx){
+    if(!boState || !boState.hours[hIdx]) return;
+    if(boState.hours[hIdx].moduleIds.includes(moduleId)){ alert("Ce module est déjà placé dans cette heure."); return; }
+    boState.hours[hIdx].moduleIds.push(moduleId);
+    renderBoHours(); renderModuleList();
+  }
+  function removeModuleFromHour(hIdx, idx){
+    boState.hours[hIdx].moduleIds.splice(idx,1);
+    renderBoHours(); renderModuleList();
+  }
+  function moveModuleBetweenHours(fromHour, fromIdx, toHour, toIdx){
+    const arr = boState.hours[fromHour].moduleIds;
+    const id = arr[fromIdx];
+    if(id==null) return;
+    arr.splice(fromIdx,1);
+    if(fromHour===toHour && fromIdx<toIdx) toIdx -= 1;
+    boState.hours[toHour].moduleIds.splice(toIdx,0,id);
+    renderBoHours();
+  }
+  function moveModuleWithinHourByOffset(hIdx, idx, delta){
+    const arr = boState.hours[hIdx].moduleIds;
+    const target = idx + delta;
+    if(target < 0 || target >= arr.length) return;
+    const [id] = arr.splice(idx,1);
+    arr.splice(target,0,id);
+    renderBoHours();
+  }
+  function handleBoDrop(toHour, toIdx){
+    if(!boDrag) return;
+    if(boDrag.type === "new") addModuleToHour(boDrag.moduleId, toHour);
+    else if(boDrag.type === "move") moveModuleBetweenHours(boDrag.hourIdx, boDrag.idx, toHour, toIdx);
+    boDrag = null;
+  }
+
+  const DAY_NAMES_FR = ["Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi","Dimanche"];
+  function boDayIndexOf(hIdx){
+    return Math.floor(hIdx / (boState.numHours || 1));
+  }
+  function boDateOf(hIdx){
+    return addDaysIso(boState.date, boDayIndexOf(hIdx));
+  }
+  function boClockHourOf(hIdx){
+    if(boState.startHour==null) return null;
+    const hourWithinDay = hIdx % (boState.numHours || 1);
+    return (boState.startHour + hourWithinDay) % 24;
+  }
+  function formatDateFrWithDay(iso){
+    if(!iso) return "";
+    const d = new Date(iso+"T00:00:00");
+    return DAY_NAMES_FR[(d.getDay()+6)%7] + " " + formatDateFr(iso);
+  }
+  function boHourLabel(hIdx){
+    const h = boClockHourOf(hIdx);
+    return h!=null ? String(h).padStart(2,"0")+":00" : "Heure " + ((hIdx % (boState.numHours||1))+1);
+  }
+
+  function autoFillHourCore(hIdx){
+    const em = boEmission();
+    if(!em) return { pickedCount:0, need:0 };
+    const hourObj = boState.hours[hIdx];
+    const clockHour = boClockHourOf(hIdx);
+    const targetDate = boDateOf(hIdx);
+    const targetDay = boDayIndexOf(hIdx);
+    const need = boState.modulesPerHour - hourObj.moduleIds.length;
+    if(need <= 0) return { pickedCount:0, need:0 };
+
+    const usedElsewhere = new Set();
+    const rubriqueHours = {}; // rubrique -> Set(heures déjà utilisées ce même jour)
+    boState.hours.forEach((h,i)=>{
+      const hClock = boClockHourOf(i);
+      h.moduleIds.forEach(id=>{
+        usedElsewhere.add(id);
+        if(boDayIndexOf(i) !== targetDay) return;
+        const mm = em.modules[id];
+        if(mm && mm.rubrique && hClock!=null){
+          (rubriqueHours[mm.rubrique] = rubriqueHours[mm.rubrique] || new Set()).add(hClock);
+        }
+      });
+    });
+
+    function rubriqueOk(m){
+      if(!m.rubrique || clockHour==null) return true;
+      const used = rubriqueHours[m.rubrique];
+      if(!used) return true;
+      for(const h of used){ if(Math.abs(h-clockHour) < 2) return false; }
+      return true;
+    }
+    function baseCandidates(){
+      return Object.values(em.modules).filter(m=>{
+        if(usedElsewhere.has(m.id)) return false;
+        if(clockHour!=null && moduleConflicts(m, targetDate, clockHour)) return false;
+        return rubriqueOk(m);
+      });
+    }
+    function sortCandidates(list){
+      return list.slice().sort((a,b)=>{
+        if(a.history.length !== b.history.length) return a.history.length - b.history.length;
+        const la = lastHistoryDate(a), lb = lastHistoryDate(b);
+        return la < lb ? -1 : la > lb ? 1 : 0;
+      });
+    }
+    function markUsed(m){
+      usedElsewhere.add(m.id);
+      if(m.rubrique && clockHour!=null){
+        (rubriqueHours[m.rubrique] = rubriqueHours[m.rubrique] || new Set()).add(clockHour);
+      }
+    }
+
+    const picked = [];
+    const planned = hourObj.plannedRubriques || [];
+    const startSlot = hourObj.moduleIds.length;
+
+    for(let i=0; i<need; i++){
+      const targetRubrique = planned[startSlot + i];
+      let chosen = null;
+      if(targetRubrique){
+        const matches = sortCandidates(baseCandidates().filter(m=> m.rubrique === targetRubrique));
+        if(matches.length) chosen = matches[0];
+      }
+      if(!chosen){
+        const rest = sortCandidates(baseCandidates());
+        if(rest.length) chosen = rest[0];
+      }
+      if(chosen){ picked.push(chosen); markUsed(chosen); }
+    }
+
+    picked.forEach(m=> hourObj.moduleIds.push(m.id));
+    return { pickedCount: picked.length, need };
+  }
+
+  function autoFillHour(hIdx){
+    const result = autoFillHourCore(hIdx);
+    if(result.pickedCount < result.need){
+      alert("Seulement " + result.pickedCount + " module(s) disponible(s) sans conflit pour " + boHourLabel(hIdx) + " (" + result.need + " demandé(s)).");
+    }
+    renderBoHours(); renderModuleList();
+  }
+
+  function autoFillAllHours(){
+    if(!boState || !boState.hours.length){ alert("Crée d'abord un Best Of."); return; }
+    let totalPicked = 0, totalNeed = 0;
+    const shortSlots = [];
+    boState.hours.forEach((h,i)=>{
+      const result = autoFillHourCore(i);
+      totalPicked += result.pickedCount;
+      totalNeed += result.need;
+      if(result.pickedCount < result.need){
+        const dateLabel = boState.numDays > 1 ? formatDateFr(boDateOf(i)) + " " : "";
+        shortSlots.push(dateLabel + boHourLabel(i) + " (" + result.pickedCount + "/" + result.need + ")");
+      }
+    });
+    renderBoHours(); renderModuleList();
+    let msg = totalPicked + " module(s) ajouté(s) au total sur toute la période.";
+    if(shortSlots.length){
+      msg += "\n\nCréneaux incomplets (pas assez de modules disponibles sans conflit) :\n" + shortSlots.slice(0,20).join("\n");
+      if(shortSlots.length > 20) msg += "\n… et " + (shortSlots.length-20) + " autre(s).";
+    }
+    alert(msg);
+  }
+
+  // ---- setup / save / load ----
+  // ---- émissions ----
+  function refreshEmissionSelect(){
+    const sel = document.getElementById("boEmissionSelect");
+    const ids = Object.keys(store.emissions);
+    if(!ids.length){
+      sel.innerHTML = '<option value="">— Aucune émission, crée-en une —</option>';
+      return;
+    }
+    sel.innerHTML = "";
+    ids.sort((a,b)=> store.emissions[a].name.localeCompare(store.emissions[b].name)).forEach(id=>{
+      const o = document.createElement("option"); o.value=id; o.textContent = store.emissions[id].name;
+      sel.appendChild(o);
+    });
+    if(!boEmissionId || !store.emissions[boEmissionId]) boEmissionId = ids[0];
+    sel.value = boEmissionId || "";
+  }
+  function selectEmission(id){
+    boEmissionId = id || null;
+    boState = boEmissionId ? blankBoState() : null;
+    boMode = { kind:null, name:null };
+    renderModuleFilterHourSelect();
+    renderModuleFilterRubriqueSelect();
+    renderBoAll();
+  }
+  function createEmission(){
+    const name = prompt("Nom de l'émission :");
+    if(!name) return;
+    const id = uid("em");
+    store.emissions[id] = { id, name:name.trim(), logos:{radio:null,emission:null,equipe:null}, modules:{}, bestOf:{}, rubriqueGrids:{} };
+    persistStore();
+    refreshEmissionSelect();
+    selectEmission(id);
+  }
+  function renameEmission(){
+    const em = requireBoEmission();
+    if(!em) return;
+    const name = prompt("Nouveau nom :", em.name);
+    if(!name) return;
+    em.name = name.trim();
+    persistStore();
+    refreshEmissionSelect();
+  }
+  function deleteEmission(){
+    const em = requireBoEmission();
+    if(!em) return;
+    if(!confirm('Supprimer l\'émission "' + em.name + '" ?\n\nSes ' + Object.keys(em.modules).length + ' module(s) et tous ses Best Of enregistrés seront définitivement perdus.')) return;
+    delete store.emissions[em.id];
+    persistStore();
+    boEmissionId = null; boState = null;
+    refreshEmissionSelect();
+    renderBoAll();
+  }
+
+  // ---- grilles de programmation de rubriques ----
+  function refreshGridSelect(){
+    const sel = document.getElementById("boGridSelect");
+    const em = boEmission();
+    sel.innerHTML = '<option value="">— Aucune (libre) —</option>';
+    if(!em) return;
+    Object.keys(em.rubriqueGrids).sort((a,b)=> em.rubriqueGrids[a].name.localeCompare(em.rubriqueGrids[b].name)).forEach(id=>{
+      const o = document.createElement("option"); o.value=id; o.textContent = em.rubriqueGrids[id].name;
+      sel.appendChild(o);
+    });
+  }
+  function createGrid(){
+    const em = requireBoEmission();
+    if(!em) return;
+    if(!boState || !boState.hours.length){ alert("Crée d'abord un Best Of : la grille reprend son nombre d'heures et de modules par heure."); return; }
+    const name = prompt("Nom de la grille :");
+    if(!name) return;
+    const id = uid("grid");
+    em.rubriqueGrids[id] = {
+      id, name: name.trim(), startHour: boState.startHour, numHours: boState.numHours,
+      modulesPerHour: boState.modulesPerHour,
+      slots: Array.from({length:boState.numHours}, ()=> Array(boState.modulesPerHour).fill(null))
+    };
+    persistStore();
+    refreshGridSelect();
+    document.getElementById("boGridSelect").value = id;
+    openGridEditorModal(id);
+  }
+  function editGrid(){
+    const sel = document.getElementById("boGridSelect");
+    if(!sel.value){ alert("Sélectionne une grille à éditer, ou crée-en une nouvelle."); return; }
+    openGridEditorModal(sel.value);
+  }
+  function deleteGrid(){
+    const em = requireBoEmission();
+    if(!em) return;
+    const sel = document.getElementById("boGridSelect");
+    if(!sel.value){ alert("Sélectionne une grille à supprimer."); return; }
+    const grid = em.rubriqueGrids[sel.value];
+    if(!confirm('Supprimer la grille "' + grid.name + '" ?')) return;
+    delete em.rubriqueGrids[sel.value];
+    persistStore();
+    refreshGridSelect();
+  }
+  function applyGrid(){
+    const em = requireBoEmission();
+    if(!em) return;
+    if(!boState || !boState.hours.length){ alert("Crée d'abord un Best Of."); return; }
+    const sel = document.getElementById("boGridSelect");
+    if(!sel.value){
+      boState.hours.forEach(h=> h.plannedRubriques = null);
+      alert("Le Best Of est maintenant libre (aucune grille appliquée) : le remplissage automatique choisit librement.");
+      renderBoHours();
+      return;
+    }
+    const grid = em.rubriqueGrids[sel.value];
+    if(!grid) return;
+    boState.hours.forEach((h,i)=>{
+      const dayHourIdx = i % boState.numHours;
+      h.plannedRubriques = grid.slots[dayHourIdx] ? grid.slots[dayHourIdx].slice() : null;
+    });
+    alert('Grille "' + grid.name + '" appliquée' + (boState.numDays>1 ? " (répétée chaque jour)" : "") + '. Le remplissage automatique essaiera de respecter les rubriques prévues pour chaque emplacement.');
+    renderBoHours();
+  }
+  function openGridEditorModal(gridId){
+    const em = boEmission();
+    const grid = em && em.rubriqueGrids[gridId];
+    if(!grid) return;
+    const root = document.getElementById("modalRoot");
+    let rowsHtml = "";
+    for(let h=0; h<grid.numHours; h++){
+      const label = grid.startHour!=null ? String((grid.startHour+h)%24).padStart(2,"0")+":00" : "Heure "+(h+1);
+      rowsHtml += `<tr><td class="bo-grid-hourcell">${label}</td>`;
+      for(let s=0; s<grid.modulesPerHour; s++){
+        rowsHtml += `<td><select class="bo-grid-cell" data-h="${h}" data-s="${s}"></select></td>`;
+      }
+      rowsHtml += `</tr>`;
+    }
+    root.innerHTML = `
+      <div class="modal-overlay">
+        <div class="modal-card" style="max-width:min(820px,94vw); max-height:90vh; overflow-y:auto;">
+          <h3>Grille "${escapeHtml(grid.name)}"</h3>
+          <p class="modal-sub">Assigne une rubrique à chaque emplacement de module (facultatif). Les emplacements laissés sur "Libre" seront remplis normalement lors du remplissage automatique.</p>
+          <div style="overflow-x:auto;">
+            <table class="bo-grid-table"><tbody>${rowsHtml}</tbody></table>
+          </div>
+          <div class="modal-actions" style="margin-top:14px;">
+            <button class="ghost small" id="gridClose">Fermer</button>
+          </div>
+        </div>
+      </div>`;
+    root.querySelectorAll(".bo-grid-cell").forEach(sel=>{
+      const h = +sel.dataset.h, s = +sel.dataset.s;
+      populateRubriqueSelect(sel, grid.slots[h] ? grid.slots[h][s] : null, "— Libre —");
+      sel.addEventListener("change", e=>{
+        grid.slots[h][s] = e.target.value || null;
+        persistStore();
+      });
+    });
+    document.getElementById("gridClose").onclick = ()=>{ root.innerHTML = ""; };
+  }
+
+  // ---- logos Best Of (par émission) ----
+  function renderBoLogoSlots(){
+    const wrap = document.getElementById("boLogoSlots");
+    const em = boEmission();
+    if(!em){
+      wrap.innerHTML = '<div class="bo-count-hint" style="text-align:center; padding:10px;">Choisis ou crée une émission ci-dessus.</div>';
+      return;
+    }
+    wrap.innerHTML = "";
+    Object.keys(LOGO_ROLES).forEach(roleKey=>{
+      const role = LOGO_ROLES[roleKey];
+      const logo = em.logos[roleKey];
+      const row = document.createElement("div"); row.className = "logo-slot";
+      row.innerHTML = `
+        <div class="thumb ${logo?"":"empty"}">${logo ? `<img src="${logo.dataUrl}">` : "Aucune<br>image"}</div>
+        <div class="meta"><div class="role">${role.label}</div><div class="hint">${role.hint}</div></div>
+        <div class="actions">
+          <button class="small btn-upload">${logo?"Remplacer":"+ Ajouter"}</button>
+          ${logo ? '<button class="small danger-txt btn-remove">Supprimer</button>' : ""}
+        </div>`;
+      row.querySelector(".btn-upload").addEventListener("click", ()=>{
+        boPendingLogoRole = roleKey;
+        document.getElementById("boLogoFileInput").click();
+      });
+      const rmBtn = row.querySelector(".btn-remove");
+      if(rmBtn) rmBtn.addEventListener("click", ()=>{
+        em.logos[roleKey] = null; persistStore(); renderBoLogoSlots();
+      });
+      wrap.appendChild(row);
+    });
+  }
+
+  function createOrReconfigureBo(){
+    if(!requireBoEmission()) return;
+    const name = document.getElementById("boName").value.trim() || "Best Of";
+    const date = document.getElementById("boDate").value || todayIso();
+    const numDays = Math.max(1, Math.min(31, parseInt(document.getElementById("boNumDays").value,10) || 1));
+    const startRaw = document.getElementById("boStartHour").value;
+    const startHour = startRaw==="" ? null : Math.max(0, Math.min(23, parseInt(startRaw,10)));
+    const numHours = Math.max(1, Math.min(18, parseInt(document.getElementById("boNumHours").value,10) || 1));
+    const modulesPerHour = Math.max(1, Math.min(20, parseInt(document.getElementById("boModulesPerHour").value,10) || 1));
+    const prevHours = boState ? boState.hours : [];
+    const totalSlots = numHours * numDays;
+    const hours = Array.from({length:totalSlots}, (_,i)=> prevHours[i] || {moduleIds:[]});
+    boState = { name, date, numDays, startHour, numHours, modulesPerHour, hours };
+    boMode = { kind:null, name:null };
+    renderBoAll();
+  }
+
+  function saveBo(){
+    const em = requireBoEmission();
+    if(!em) return;
+    if(!boState){ alert("Crée d'abord un Best Of."); return; }
+    const dateLabel = boState.numDays > 1 ? (boState.date + " → " + boDateOf(boState.hours.length-1)) : boState.date;
+    const defaultLabel = dateLabel + " — " + boState.name;
+    const label = prompt("Enregistrer ce Best Of sous quel nom/date ?", defaultLabel);
+    if(!label) return;
+    em.bestOf[label] = JSON.parse(JSON.stringify(boState));
+    boState.hours.forEach((h,hIdx)=>{
+      const clockHour = boClockHourOf(hIdx);
+      if(clockHour==null) return;
+      const hDate = boDateOf(hIdx);
+      h.moduleIds.forEach(id=>{
+        const m = em.modules[id];
+        if(!m) return;
+        if(!m.history.some(x=>x.date===hDate && x.hour===clockHour)){
+          m.history.push({date:hDate, hour:clockHour});
+        }
+      });
+    });
+    persistStore();
+    boMode = { kind:"bestof", name:label };
+    refreshBoSelect(); renderModuleList();
+    alert("Best Of enregistré. L'historique des modules utilisés a été mis à jour.");
+  }
+  function loadBo(name){
+    const em = boEmission();
+    if(!em || !name || !em.bestOf[name]) return;
+    boState = JSON.parse(JSON.stringify(em.bestOf[name]));
+    boMode = { kind:"bestof", name };
+    renderBoAll();
+  }
+  function deleteBo(){
+    const em = requireBoEmission();
+    if(!em) return;
+    if(boMode.kind!=="bestof" || !boMode.name){ alert("Sélectionne d'abord un Best Of enregistré."); return; }
+    if(!confirm('Supprimer "' + boMode.name + '" ?')) return;
+    delete em.bestOf[boMode.name];
+    persistStore();
+    boMode = { kind:null, name:null };
+    refreshBoSelect();
+  }
+  function refreshBoSelect(){
+    const sel = document.getElementById("boSelect");
+    const em = boEmission();
+    sel.innerHTML = '<option value="">— Best Of enregistrés —</option>';
+    if(!em) return;
+    Object.keys(em.bestOf).sort().reverse().forEach(k=>{
+      const o = document.createElement("option"); o.value=k; o.textContent=k; sel.appendChild(o);
+    });
+    sel.value = boMode.kind==="bestof" ? boMode.name : "";
+  }
+
+  // ---- render ----
+  function renderBoAll(){
+    document.getElementById("boName").value = boState ? boState.name : "";
+    document.getElementById("boDate").value = boState ? boState.date : todayIso();
+    document.getElementById("boNumDays").value = boState ? (boState.numDays||1) : 1;
+    document.getElementById("boStartHour").value = boState && boState.startHour!=null ? boState.startHour : "";
+    document.getElementById("boNumHours").value = boState ? boState.numHours : 4;
+    document.getElementById("boModulesPerHour").value = boState ? boState.modulesPerHour : 6;
+    renderModuleTargetHourSelect();
+    renderModuleList();
+    renderBoLogoSlots();
+    renderBoHours();
+    refreshBoSelect();
+    refreshGridSelect();
+    renderModuleFilterRubriqueSelect();
+    refreshCustomRubriqueSelect();
+    updateHeaderHeight();
+  }
+
+  function renderModuleTargetHourSelect(){
+    const sel = document.getElementById("moTargetHour");
+    const prev = sel.value;
+    sel.innerHTML = "";
+    if(!boState || !boState.hours.length){ sel.innerHTML = '<option value="">Créer un Best Of</option>'; return; }
+    boState.hours.forEach((h,i)=>{
+      const o = document.createElement("option"); o.value = i;
+      const datePrefix = boState.numDays > 1 ? formatDateFr(boDateOf(i)) + " " : "";
+      o.textContent = "→ " + datePrefix + boHourLabel(i);
+      sel.appendChild(o);
+    });
+    if(prev!=="" && +prev < boState.hours.length) sel.value = prev;
+  }
+
+  function renderModuleFilterHourSelect(){
+    const sel = document.getElementById("moFilterHour");
+    if(sel.options.length > 1) return;
+    for(let h=0; h<24; h++){
+      const o = document.createElement("option"); o.value = h; o.textContent = String(h).padStart(2,"0") + "h";
+      sel.appendChild(o);
+    }
+  }
+  function renderModuleFilterRubriqueSelect(){
+    const sel = document.getElementById("moFilterRubrique");
+    const prev = sel.value;
+    sel.innerHTML = '<option value="">Rubrique : toutes</option>';
+    allRubriquesFor(boEmission()).sort((a,b)=>a.localeCompare(b)).forEach(r=>{
+      const o = document.createElement("option"); o.value = r; o.textContent = r;
+      sel.appendChild(o);
+    });
+    const noneOpt = document.createElement("option"); noneOpt.value = "__none__"; noneOpt.textContent = "— Sans rubrique —";
+    sel.appendChild(noneOpt);
+    sel.value = prev;
+  }
+
+  function renderModuleList(){
+    const em = boEmission();
+    document.getElementById("moduleDbCount").textContent = em ? "(" + Object.keys(em.modules).length + ")" : "";
+    const q = document.getElementById("moSearch").value.trim().toLowerCase();
+    const hourFilter = document.getElementById("moFilterHour").value;
+    const rubriqueFilter = document.getElementById("moFilterRubrique").value;
+    const sortBy = document.getElementById("moSortBy").value;
+    const list = document.getElementById("moduleList");
+    if(!em){
+      list.innerHTML = '<div class="bo-count-hint" style="text-align:center; padding:14px;">Choisis ou crée une émission ci-dessus pour voir ses modules.</div>';
+      return;
+    }
+    let mods = Object.values(em.modules);
+    if(q) mods = mods.filter(m=> m.title.toLowerCase().includes(q) || m.tags.some(t=>t.toLowerCase().includes(q)));
+    if(hourFilter!=="") mods = mods.filter(m=> m.initialHour === parseInt(hourFilter,10));
+    if(rubriqueFilter!==""){
+      mods = rubriqueFilter==="__none__" ? mods.filter(m=> !m.rubrique) : mods.filter(m=> m.rubrique === rubriqueFilter);
+    }
+    if(sortBy === "rubrique"){
+      mods.sort((a,b)=> (a.rubrique||"\uffff").localeCompare(b.rubrique||"\uffff") || a.title.localeCompare(b.title));
+    } else {
+      mods.sort((a,b)=> a.title.localeCompare(b.title));
+    }
+    list.innerHTML = "";
+    if(!mods.length){
+      list.innerHTML = '<div class="bo-count-hint" style="text-align:center; padding:14px;">Aucun module ne correspond.</div>';
+      return;
+    }
+    mods.slice(0,300).forEach(m=>{
+      const row = document.createElement("div"); row.className = "bo-module-row";
+      row.draggable = true;
+      const already = isModuleAlreadyPlaced(m.id);
+      row.innerHTML = `
+        <div class="bo-hour-badge">${m.initialHour!=null ? String(m.initialHour).padStart(2,"0")+"h" : "—"}</div>
+        <div class="bo-title-wrap">
+          <div class="bo-title">${escapeHtml(m.title)}${m.rubrique?`<span class="bo-rubrique-badge">${escapeHtml(m.rubrique)}</span>`:""}</div>
+          <div class="bo-meta">${m.zenonId?escapeHtml(m.zenonId)+" · ":""}${m.history.length} passage(s)${already?" · déjà placé":""}</div>
+        </div>
+        <div class="bo-dur">${fmtMMSS(m.duration)}</div>
+        <button class="bo-add" title="Ajouter à l'heure sélectionnée">+</button>
+      `;
+      row.querySelector(".bo-title").addEventListener("click", ()=> openModuleFiche(m.id));
+      row.querySelector(".bo-add").addEventListener("click", ()=>{
+        if(!boState || !boState.hours.length){ alert("Crée d'abord un Best Of."); return; }
+        const hIdx = parseInt(document.getElementById("moTargetHour").value,10) || 0;
+        addModuleToHour(m.id, hIdx);
+      });
+      row.addEventListener("dragstart", ()=>{ boDrag = { type:"new", moduleId:m.id }; });
+      list.appendChild(row);
+    });
+  }
+
+  function renderBoHours(){
+    const pane = document.getElementById("bestOfHoursPane");
+    pane.innerHTML = "";
+    const em = boEmission();
+    if(!boState || !boState.hours.length){
+      pane.innerHTML = '<div class="hour-empty" style="margin:24px; text-align:center; padding:24px; border:1px dashed var(--line); border-radius:10px; color:var(--muted);">Configure et clique sur "Créer / Reconfigurer" dans le panneau de gauche pour commencer.</div>';
+      return;
+    }
+    const toolbar = document.createElement("div");
+    toolbar.className = "bo-toolbar";
+    toolbar.innerHTML = `<button class="primary small" id="btnBoFillAll">🎲 Compléter la période</button>`;
+    toolbar.querySelector("#btnBoFillAll").addEventListener("click", autoFillAllHours);
+    pane.appendChild(toolbar);
+
+    boState.hours.forEach((hourObj, hIdx)=>{
+      if(boState.numDays > 1 && hIdx % boState.numHours === 0){
+        const daySep = document.createElement("div");
+        daySep.className = "bo-day-separator";
+        daySep.textContent = formatDateFrWithDay(boDateOf(hIdx));
+        pane.appendChild(daySep);
+      }
+      const card = document.createElement("div"); card.className = "bo-hour-card";
+      const head = document.createElement("div"); head.className = "bo-hour-head";
+      const count = hourObj.moduleIds.length;
+      const full = count >= boState.modulesPerHour;
+      head.innerHTML = `
+        <div class="bo-hour-badge-lg">${boHourLabel(hIdx)}</div>
+        <div class="bo-hour-count${full?" full":""}"><b>${count}</b> / ${boState.modulesPerHour} modules</div>
+        <button class="small bo-autofill-btn">🎲 Compléter</button>
+      `;
+      head.querySelector(".bo-autofill-btn").addEventListener("click", ()=> autoFillHour(hIdx));
+      card.appendChild(head);
+
+      const body = document.createElement("div"); body.className = "bo-hour-body";
+      if(!hourObj.moduleIds.length){
+        body.innerHTML = '<div class="bo-hour-empty">Aucun module — utilise "+" dans la base, glisse-dépose, ou "Compléter"</div>';
+      } else {
+        hourObj.moduleIds.forEach((modId, idx)=>{
+          const m = em ? em.modules[modId] : null;
+          const row = document.createElement("div"); row.className = "bo-placed-row";
+          row.draggable = true;
+          if(!m){
+            row.innerHTML = `<div class="bo-hour-badge"></div><div class="bo-handle"></div><div class="bo-info-wrap"><div class="bo-sub" style="color:var(--danger);">Module introuvable (supprimé de la base)</div></div><div class="bo-dur"></div><div class="bo-row-actions"><button class="bo-del">×</button></div>`;
+          } else {
+            const clockHour = boClockHourOf(hIdx);
+            const conflict = clockHour!=null ? moduleConflicts(m, boDateOf(hIdx), clockHour) : null;
+            if(conflict) row.classList.add("conflict");
+            row.innerHTML = `
+              <div class="bo-hour-badge">${m.initialHour!=null ? String(m.initialHour).padStart(2,"0")+"h init." : "—"}</div>
+              <div class="bo-handle">⠿</div>
+              <div class="bo-info-wrap">
+                <div class="bo-title">${escapeHtml(m.title)}${m.rubrique?`<span class="bo-rubrique-badge">${escapeHtml(m.rubrique)}</span>`:""}</div>
+                <div class="bo-sub">${m.zenonId?escapeHtml(m.zenonId):""}${conflict?`<div class="bo-conflict-flag">⚠ ${escapeHtml(conflict)}</div>`:""}</div>
+              </div>
+              <div class="bo-dur">${fmtMMSS(m.duration)}</div>
+              <div class="bo-row-actions">
+                <button class="bo-move-up" title="Monter">▲</button>
+                <button class="bo-move-down" title="Descendre">▼</button>
+                <button class="bo-del">×</button>
+              </div>
+            `;
+            row.querySelector(".bo-title").addEventListener("click", ()=> openModuleFiche(m.id));
+            row.querySelector(".bo-move-up").addEventListener("click", ()=> moveModuleWithinHourByOffset(hIdx, idx, -1));
+            row.querySelector(".bo-move-down").addEventListener("click", ()=> moveModuleWithinHourByOffset(hIdx, idx, 1));
+          }
+          row.querySelector(".bo-del").addEventListener("click", ()=> removeModuleFromHour(hIdx, idx));
+          row.addEventListener("dragstart", ()=>{ boDrag = { type:"move", hourIdx:hIdx, idx }; row.classList.add("dragging"); });
+          row.addEventListener("dragend", ()=> row.classList.remove("dragging"));
+          row.addEventListener("dragover", e=> e.preventDefault());
+          row.addEventListener("drop", e=>{
+            e.preventDefault();
+            const rect = row.getBoundingClientRect();
+            const before = (e.clientY - rect.top) < rect.height/2;
+            handleBoDrop(hIdx, idx + (before?0:1));
+          });
+          body.appendChild(row);
+        });
+      }
+      body.addEventListener("dragover", e=>{ e.preventDefault(); body.classList.add("drop-target"); });
+      body.addEventListener("dragleave", ()=> body.classList.remove("drop-target"));
+      body.addEventListener("drop", e=>{
+        e.preventDefault(); body.classList.remove("drop-target");
+        handleBoDrop(hIdx, hourObj.moduleIds.length);
+      });
+      card.appendChild(body);
+      pane.appendChild(card);
+    });
+  }
+
+  function buildMonthCalendarHtml(m, year, month){
+    const first = new Date(year, month, 1);
+    const startDow = (first.getDay()+6)%7; // 0=lundi
+    const daysInMonth = new Date(year, month+1, 0).getDate();
+    // on met de côté l'entrée d'historique qui correspond à la diffusion initiale : le point
+    // "initiale" est piloté directement par les champs initialDate/initialHour du module (fiables
+    // même si, pour une raison ou une autre, l'historique ne la reprend pas à l'identique), et le
+    // reste de l'historique est traité comme des rediffusions.
+    const histByDate = {};
+    m.history.forEach(h=>{
+      if(h.date === m.initialDate && h.hour === m.initialHour) return;
+      (histByDate[h.date] = histByDate[h.date]||[]).push(h.hour);
+    });
+
+    const cells = [];
+    for(let i=0;i<startDow;i++) cells.push(null);
+    for(let d=1; d<=daysInMonth; d++) cells.push(d);
+    while(cells.length % 7 !== 0) cells.push(null);
+
+    let html = '<div class="bo-month-cal">';
+    ["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"].forEach(d=> html += `<div class="bo-month-hd">${d}</div>`);
+    cells.forEach(d=>{
+      if(d==null){ html += '<div class="bo-month-cell empty"></div>'; return; }
+      const iso = year + "-" + String(month+1).padStart(2,"0") + "-" + String(d).padStart(2,"0");
+      const rediffHrs = histByDate[iso];
+      const hasInitial = (iso === m.initialDate) && m.initialHour != null;
+      const hasRediff = !!(rediffHrs && rediffHrs.length);
+      const labelParts = [];
+      if(hasInitial) labelParts.push(String(m.initialHour).padStart(2,"0")+"h (diffusion initiale)");
+      if(rediffHrs) rediffHrs.slice().sort((a,b)=>a-b).forEach(h=> labelParts.push(String(h).padStart(2,"0")+"h (rediffusion)"));
+      let dots = "";
+      if(hasInitial || hasRediff){
+        dots = '<span class="bo-month-dots">' +
+          (hasInitial ? '<span class="bo-month-dot bo-dot-initial"></span>' : '') +
+          (hasRediff ? '<span class="bo-month-dot bo-dot-rediff"></span>' : '') +
+          '</span>';
+      }
+      const hrs = hasInitial || hasRediff;
+      html += `<div class="bo-month-cell${hrs?" hit":""}" title="${escapeHtml(labelParts.join(", "))}"><span class="bo-month-daynum">${d}</span>${dots}</div>`;
+    });
+    html += "</div>";
+    html += '<div class="bo-cal-legend"><span><span class="bo-month-dot bo-dot-initial"></span> Diffusion initiale</span><span><span class="bo-month-dot bo-dot-rediff"></span> Rediffusion</span></div>';
+    return html;
+  }
+
+  function openModuleFiche(moduleId){
+    const em = boEmission();
+    const m = em ? em.modules[moduleId] : null;
+    if(!m) return;
+    const root = document.getElementById("modalRoot");
+    const now = new Date();
+    let calYear = now.getFullYear(), calMonth = now.getMonth();
+    if(m.initialDate){
+      const d = new Date(m.initialDate+"T00:00:00");
+      calYear = d.getFullYear(); calMonth = d.getMonth();
+    } else if(m.history.length){
+      const last = m.history.reduce((mx,h)=> h.date>mx.date?h:mx, m.history[0]);
+      const d = new Date(last.date+"T00:00:00");
+      calYear = d.getFullYear(); calMonth = d.getMonth();
+    }
+    const monthNames = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
+
+    root.innerHTML = `
+      <div class="modal-overlay">
+        <div class="modal-card" style="max-width:min(760px,94vw); max-height:90vh; overflow-y:auto;">
+          <h3>Fiche module ${m.rubrique ? `<span class="bo-rubrique-badge">${escapeHtml(m.rubrique)}</span>` : ""}</h3>
+          <div class="form-row">
+            <div class="field" style="flex:2;"><label>Titre</label><input type="text" id="ficheTitle" value="${escapeHtml(m.title)}"></div>
+            <div class="field"><label>ID Zenon</label><input type="text" id="ficheZenon" value="${escapeHtml(m.zenonId||"")}"></div>
+          </div>
+          <div class="form-row">
+            <div class="field"><label>Durée</label><div class="dur-field"><input type="number" id="ficheDurMin" min="0" max="60" value="${Math.floor(m.duration/60)}"><span>:</span><input type="number" id="ficheDurSec" min="0" max="59" value="${m.duration%60}"></div></div>
+            <div class="field"><label>Date initiale</label><input type="date" id="ficheDate" value="${m.initialDate||""}"></div>
+            <div class="field"><label>Heure initiale</label><input type="number" id="ficheHour" min="0" max="23" placeholder="hh" value="${m.initialHour!=null?m.initialHour:""}"></div>
+          </div>
+          <div class="form-row">
+            <div class="field" style="flex:2;"><label>Tags (séparés par des virgules)</label><input type="text" id="ficheTags" value="${escapeHtml(m.tags.join(", "))}"></div>
+            <div class="field"><label>Rubrique</label><select id="ficheRubrique"></select></div>
+          </div>
+          <p class="modal-sub" style="margin-top:2px;">${m.history.length} passage(s) au total — calendrier des rediffusions :</p>
+          <div class="bo-month-nav">
+            <button class="small ghost" id="ficheCalPrev">◀</button>
+            <span id="ficheCalLabel" style="font-weight:700; font-size:13px;"></span>
+            <button class="small ghost" id="ficheCalNext">▶</button>
+            ${m.initialDate ? '<button class="small ghost" id="ficheCalToInitial" style="margin-left:10px;">🔵 Diffusion initiale</button>' : ""}
+          </div>
+          <div id="ficheCalWrap"></div>
+          <div class="modal-actions" style="margin-top:14px;">
+            <button class="small danger-txt" id="ficheDelete">Supprimer le module</button>
+            <button class="small ghost" id="ficheClearHistory" title="Retire toutes les rediffusions enregistrées (garde la diffusion initiale)">🧹 Vider l'historique des rediffusions</button>
+            <button class="primary small" id="ficheClose">Fermer</button>
+          </div>
+        </div>
+      </div>`;
+
+    function renderCal(){
+      document.getElementById("ficheCalLabel").textContent = monthNames[calMonth] + " " + calYear;
+      document.getElementById("ficheCalWrap").innerHTML = buildMonthCalendarHtml(m, calYear, calMonth);
+    }
+    populateRubriqueSelect(document.getElementById("ficheRubrique"), m.rubrique, "— Aucune —");
+    document.getElementById("ficheRubrique").addEventListener("change", e=>{
+      m.rubrique = e.target.value || null; saveAndRefresh();
+    });
+    renderCal();
+    document.getElementById("ficheCalPrev").addEventListener("click", ()=>{
+      calMonth--; if(calMonth<0){ calMonth=11; calYear--; } renderCal();
+    });
+    document.getElementById("ficheCalNext").addEventListener("click", ()=>{
+      calMonth++; if(calMonth>11){ calMonth=0; calYear++; } renderCal();
+    });
+    if(m.initialDate){
+      document.getElementById("ficheCalToInitial").addEventListener("click", ()=>{
+        const d = new Date(m.initialDate+"T00:00:00");
+        calYear = d.getFullYear(); calMonth = d.getMonth();
+        renderCal();
+      });
+    }
+
+    function saveAndRefresh(){
+      persistStore();
+      renderModuleList();
+      if(typeof renderBoHours==="function") renderBoHours();
+    }
+    document.getElementById("ficheTitle").addEventListener("change", e=>{ m.title = e.target.value.trim() || m.title; saveAndRefresh(); });
+    document.getElementById("ficheZenon").addEventListener("change", e=>{ m.zenonId = e.target.value.trim(); saveAndRefresh(); });
+    document.getElementById("ficheDurMin").addEventListener("change", ()=>{
+      const min = parseInt(document.getElementById("ficheDurMin").value,10)||0;
+      const sec = parseInt(document.getElementById("ficheDurSec").value,10)||0;
+      m.duration = min*60+sec; saveAndRefresh();
+    });
+    document.getElementById("ficheDurSec").addEventListener("change", ()=>{
+      const min = parseInt(document.getElementById("ficheDurMin").value,10)||0;
+      const sec = parseInt(document.getElementById("ficheDurSec").value,10)||0;
+      m.duration = min*60+sec; saveAndRefresh();
+    });
+    document.getElementById("ficheDate").addEventListener("change", e=>{ m.initialDate = e.target.value || null; saveAndRefresh(); });
+    document.getElementById("ficheHour").addEventListener("change", e=>{
+      const v = e.target.value; m.initialHour = v===""?null:Math.max(0,Math.min(23,parseInt(v,10))); saveAndRefresh();
+    });
+    document.getElementById("ficheTags").addEventListener("change", e=>{
+      m.tags = e.target.value.split(",").map(s=>s.trim()).filter(Boolean); saveAndRefresh();
+    });
+
+    document.getElementById("ficheClose").onclick = ()=>{ root.innerHTML = ""; };
+    document.getElementById("ficheDelete").onclick = ()=>{ if(deleteModule(moduleId)) root.innerHTML = ""; };
+    document.getElementById("ficheClearHistory").onclick = ()=>{
+      if(!confirm("Retirer toutes les rediffusions enregistrées pour ce module ? La diffusion initiale sera conservée.")) return;
+      m.history = (m.initialDate && m.initialHour!=null) ? [{date:m.initialDate, hour:m.initialHour}] : [];
+      saveAndRefresh();
+      root.innerHTML = "";
+      openModuleFiche(moduleId);
+    };
+  }
+
+  // ---- export PDF (même design que le conducteur principal) ----
+  function exportBoPdf(){
+    const em = requireBoEmission();
+    if(!em) return;
+    if(!boState || !boState.hours.length){ alert("Crée d'abord un Best Of."); return; }
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation:"portrait", unit:"pt", format:"a4" });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 40;
+    const radioLogo = em.logos.radio;
+    const emissionLogo = em.logos.emission;
+
+    const BAND_H = 96, RADIO_LOGO_H = 36, EMISSION_LOGO_H = 82;
+    const headerHeight = margin + BAND_H + 18;
+
+    function drawHeader(hIdx){
+      const bandTop = margin, bandCenterY = bandTop + BAND_H/2;
+      if(radioLogo){
+        const h = RADIO_LOGO_H, w = h*(radioLogo.ratio||1.8);
+        try{ doc.addImage(radioLogo.dataUrl, "PNG", margin, bandCenterY-h/2, w, h); }catch(e){}
+      }
+      if(emissionLogo){
+        const h = EMISSION_LOGO_H, w = h*(emissionLogo.ratio||1.8);
+        try{ doc.addImage(emissionLogo.dataUrl, "PNG", pageWidth-margin-w, bandCenterY-h/2, w, h); }catch(e){}
+      }
+      let ty = bandTop + 20;
+      doc.setFont(undefined,"bold"); doc.setFontSize(15); doc.setTextColor(20,22,28);
+      doc.text(boState.name, pageWidth/2, ty, { align:"center" });
+      ty += 15;
+      doc.setFont(undefined,"italic"); doc.setFontSize(10.5); doc.setTextColor(100,104,116);
+      doc.text(em.name + " — Best Of", pageWidth/2, ty, { align:"center" });
+      ty += 15;
+      doc.setFont(undefined,"normal"); doc.setFontSize(9.5); doc.setTextColor(150,150,158);
+      doc.text(formatDateFr(boDateOf(hIdx)) + "   ·   " + boHourLabel(hIdx), pageWidth/2, ty, { align:"center" });
+      doc.setDrawColor(225,227,235); doc.setLineWidth(0.75);
+      doc.line(margin, bandTop+BAND_H, pageWidth-margin, bandTop+BAND_H);
+    }
+    function drawFooter(){
+      const now = new Date();
+      const stamp = "Édité le " + now.toLocaleDateString("fr-FR") + " à " + now.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"});
+      doc.setFontSize(8.5); doc.setTextColor(140,140,150); doc.setFont(undefined,"normal");
+      doc.text(stamp, pageWidth/2, pageHeight-20, { align:"center" });
+    }
+
+    const emojiCache = {};
+    const HEURE_W = 74, DUR_W = 55, ICON_W = 15, ICON_GAP = 6;
+    const TABLE_MARGIN_LEFT = margin + 10;
+    const CONTENT_PAD_X = 12, CONTENT_PAD_Y = 12;
+    const contentWidth = pageWidth - margin*2;
+    const contentColWidth = contentWidth - 10 - HEURE_W - DUR_W;
+    const availableTextWidth = contentColWidth - CONTENT_PAD_X*2 - ICON_W - ICON_GAP;
+
+    boState.hours.forEach((hourObj, hIdx)=>{
+      if(hIdx > 0) doc.addPage();
+      const startPage = doc.internal.getNumberOfPages();
+      const body = [];
+      const rowMeta = [];
+      const empty = !hourObj.moduleIds.length;
+      if(empty){
+        body.push([{content:"Aucun module programmé pour cette heure", colSpan:3}]);
+        rowMeta.push({ kind:"empty" });
+      } else {
+        hourObj.moduleIds.forEach((id, idx)=>{
+          const m = em.modules[id];
+          if(!m) return;
+          const lines = [];
+          lines.push({ text: toTitleCase(m.title), size:11.5, bold:true, color:[24,26,32], gapAfter: m.zenonId?3:0 });
+          if(m.zenonId){
+            doc.setFont(undefined,"normal"); doc.setFontSize(9.5);
+            const wrapped = doc.splitTextToSize("ID Zenon : " + m.zenonId, availableTextWidth);
+            wrapped.forEach((l,i)=> lines.push({ text:l, size:9.5, bold:false, color:[120,124,136], gapAfter: i===wrapped.length-1?0:2 }));
+          }
+          const contentH = CONTENT_PAD_Y*2 + lines.reduce((s,l)=> s + (l.size+3.5) + l.gapAfter, 0);
+          body.push([ "", "", fmtMMSS(m.duration) ]);
+          rowMeta.push({ kind:"module", order: idx+1, lines, contentH });
+        });
+      }
+
+      doc.autoTable({
+        body,
+        startY: headerHeight,
+        margin: { top: headerHeight, left: TABLE_MARGIN_LEFT, right: margin, bottom: 55 },
+        theme: "plain",
+        styles: { fontSize:10.5, cellPadding:0, textColor:[40,42,50], valign:"middle", lineWidth:0 },
+        columnStyles: {
+          0:{cellWidth:HEURE_W},
+          1:{cellWidth:contentColWidth},
+          2:{halign:"right", cellWidth:DUR_W}
+        },
+        didParseCell: function(data){
+          if(data.section!=="body") return;
+          const meta = rowMeta[data.row.index];
+          if(!meta) return;
+          if(meta.kind==="empty"){
+            data.cell.styles.fontStyle="italic"; data.cell.styles.textColor=[170,170,178];
+            data.cell.styles.halign="center"; data.cell.styles.cellPadding=16;
+            return;
+          }
+          data.cell.styles.minCellHeight = meta.contentH;
+          data.cell.styles.fillColor = meta.order%2===1 ? [255,255,255] : [253,241,248];
+          if(data.column.index===2){
+            data.cell.styles.fontSize=9.5; data.cell.styles.textColor=[150,150,158];
+            data.cell.styles.cellPadding = { top:0, bottom:0, left:6, right:12 };
+          }
+        },
+        didDrawCell: function(data){
+          if(data.section!=="body") return;
+          const meta = rowMeta[data.row.index];
+          if(!meta || meta.kind!=="module") return;
+
+          doc.setFillColor(230,0,126);
+          doc.rect(margin, data.cell.y, 4, data.cell.height, "F");
+
+          if(data.column.index===0){
+            const badgeW = HEURE_W-14, badgeH = 22;
+            const bx = data.cell.x + (data.cell.width-badgeW)/2, by = data.cell.y + (data.cell.height-badgeH)/2;
+            doc.setFillColor(230,0,126);
+            doc.roundedRect(bx, by, badgeW, badgeH, 6, 6, "F");
+            doc.setFont(undefined,"bold"); doc.setFontSize(11); doc.setTextColor(255,255,255);
+            doc.text("N°"+meta.order, bx+badgeW/2, by+badgeH/2+3.5, { align:"center" });
+          }
+
+          if(data.column.index===1){
+            try{
+              const durl = emojiToDataUrl("📼", emojiCache);
+              doc.addImage(durl, "PNG", data.cell.x + CONTENT_PAD_X, data.cell.y + CONTENT_PAD_Y - 2, ICON_W, ICON_W);
+            }catch(e){}
+            const textX = data.cell.x + CONTENT_PAD_X + ICON_W + ICON_GAP;
+            let ty = data.cell.y + CONTENT_PAD_Y + (meta.lines[0] ? meta.lines[0].size*0.8 : 0);
+            meta.lines.forEach(l=>{
+              doc.setFont(undefined, l.bold ? "bold" : "normal");
+              doc.setFontSize(l.size);
+              doc.setTextColor(l.color[0], l.color[1], l.color[2]);
+              doc.text(l.text, textX, ty);
+              ty += (l.size+3.5) + l.gapAfter;
+            });
+          }
+        },
+        didDrawPage: function(){ drawHeader(hIdx); }
+      });
+      const endPage = doc.internal.getNumberOfPages();
+      for(let p=startPage; p<=endPage; p++){ doc.setPage(p); drawFooter(); }
+    });
+
+    doc.save(safeFileName(boState.name) + "_" + (boState.date||"") + ".pdf");
+  }
+
+  // ---- navigation & bindings ----
+  let boInitialized = false;
+  function switchView(view){
+    document.getElementById("conducteurView").style.display = view==="conducteur" ? "" : "none";
+    document.getElementById("bestOfView").style.display = view==="bestof" ? "" : "none";
+    document.getElementById("navConducteur").classList.toggle("active", view==="conducteur");
+    document.getElementById("navBestOf").classList.toggle("active", view==="bestof");
+    if(view==="bestof" && !boInitialized){
+      boInitialized = true;
+      renderModuleFilterHourSelect();
+      renderModuleFilterRubriqueSelect();
+      populateRubriqueSelect(document.getElementById("moRubrique"), "", "— Auto —");
+      refreshEmissionSelect();
+      boState = boEmissionId ? blankBoState() : null;
+      renderBoAll();
+    }
+    updateHeaderHeight();
+  }
+
+  function bindBestOfEvents(){
+    document.getElementById("navConducteur").addEventListener("click", ()=> switchView("conducteur"));
+    document.getElementById("navBestOf").addEventListener("click", ()=> switchView("bestof"));
+
+    document.getElementById("boEmissionSelect").addEventListener("change", e=> selectEmission(e.target.value));
+    document.getElementById("btnNewEmission").addEventListener("click", createEmission);
+    document.getElementById("btnRenameEmission").addEventListener("click", renameEmission);
+    document.getElementById("btnDeleteEmission").addEventListener("click", deleteEmission);
+
+    document.getElementById("btnAutoAssignRubriques").addEventListener("click", autoAssignRubriques);
+    document.getElementById("btnClearAllHistory").addEventListener("click", clearAllRediffusionHistory);
+    document.getElementById("btnAddRubrique").addEventListener("click", addCustomRubrique);
+    document.getElementById("btnDeleteRubrique").addEventListener("click", deleteCustomRubrique);
+    document.getElementById("btnNewGrid").addEventListener("click", createGrid);
+    document.getElementById("btnEditGrid").addEventListener("click", editGrid);
+    document.getElementById("btnDeleteGrid").addEventListener("click", deleteGrid);
+    document.getElementById("btnApplyGrid").addEventListener("click", applyGrid);
+
+    document.getElementById("btnToggleBoLogos").addEventListener("click", e=>{
+      const slots = document.getElementById("boLogoSlots");
+      const collapsed = slots.style.display === "none";
+      slots.style.display = collapsed ? "" : "none";
+      e.target.textContent = collapsed ? "Replier" : "Déplier";
+    });
+    document.getElementById("boLogoFileInput").addEventListener("change", async e=>{
+      const file = e.target.files[0];
+      e.target.value = "";
+      const em = boEmission();
+      if(!file || !boPendingLogoRole || !em) return;
+      try{
+        const processed = await processLogoFile(file);
+        em.logos[boPendingLogoRole] = { id: uid("logo"), name:file.name, dataUrl:processed.dataUrl, ratio:processed.ratio };
+        boPendingLogoRole = null;
+        persistStore();
+        renderBoLogoSlots();
+      }catch(err){
+        alert("Impossible de traiter cette image : " + err.message);
+      }
+    });
+
+    document.getElementById("btnBoCreate").addEventListener("click", createOrReconfigureBo);
+    document.getElementById("boSelect").addEventListener("change", e=> loadBo(e.target.value));
+    document.getElementById("btnBoSave").addEventListener("click", saveBo);
+    document.getElementById("btnBoDelete").addEventListener("click", deleteBo);
+
+    document.getElementById("btnToggleRubriquesCard").addEventListener("click", e=>{
+      const body = document.getElementById("rubriquesCardBody");
+      const collapsed = body.style.display === "none";
+      body.style.display = collapsed ? "" : "none";
+      e.target.textContent = collapsed ? "Replier" : "Déplier";
+    });
+    document.getElementById("btnAddModule").addEventListener("click", addModuleManual);
+
+    document.getElementById("btnImportModules").addEventListener("click", ()=> document.getElementById("moduleFileInput").click());
+    document.getElementById("moduleFileInput").addEventListener("change", e=>{
+      const file = e.target.files[0]; if(file) importModulesXlsx(file);
+      e.target.value = "";
+    });
+
+    document.getElementById("moSearch").addEventListener("input", renderModuleList);
+    document.getElementById("moFilterHour").addEventListener("change", renderModuleList);
+    document.getElementById("moFilterRubrique").addEventListener("change", renderModuleList);
+    document.getElementById("moSortBy").addEventListener("change", renderModuleList);
+
+    document.getElementById("bestOfHoursPane").addEventListener("dragover", e=> e.preventDefault());
+
+    document.getElementById("btnBoPdf") && document.getElementById("btnBoPdf").addEventListener("click", exportBoPdf);
+
+    function closeModuleFullscreen(){
+      const card = document.getElementById("moduleDbCard");
+      card.classList.remove("bo-fullscreen");
+      if(card._boPlaceholder){
+        card._boPlaceholder.parentNode.insertBefore(card, card._boPlaceholder);
+        card._boPlaceholder.remove();
+        card._boPlaceholder = null;
+      }
+      const backdrop = document.getElementById("boFullscreenBackdrop");
+      if(backdrop) backdrop.remove();
+      const btn = document.getElementById("btnToggleModuleFullscreen");
+      btn.textContent = "⛶"; btn.title = "Plein écran";
+    }
+    document.getElementById("btnToggleModuleFullscreen").addEventListener("click", e=>{
+      const card = document.getElementById("moduleDbCard");
+      const isFull = card.classList.contains("bo-fullscreen");
+      if(!isFull){
+        card._boPlaceholder = document.createComment("module-db-card-placeholder");
+        card.parentNode.insertBefore(card._boPlaceholder, card);
+        const backdrop = document.createElement("div");
+        backdrop.id = "boFullscreenBackdrop";
+        backdrop.className = "bo-fullscreen-backdrop";
+        backdrop.addEventListener("click", closeModuleFullscreen);
+        document.body.appendChild(backdrop);
+        document.body.appendChild(card);
+        card.classList.add("bo-fullscreen");
+        e.target.textContent = "✕";
+        e.target.title = "Quitter le plein écran";
+      } else {
+        closeModuleFullscreen();
+      }
+    });
+  }
+
   init();
   document.getElementById("nameInput").value = allTypes()[activeType].label;
+  bindBestOfEvents();
 })();
 </script>
+
 </body>
 </html>

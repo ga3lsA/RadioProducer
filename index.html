@@ -222,6 +222,42 @@
   .modal-field input{width:140px; text-align:center; background:var(--panel-2); border:1px solid var(--line); color:var(--text); border-radius:8px; padding:7px; font-family:'Space Mono',monospace; font-size:13px;}
   .modal-actions{display:flex; justify-content:flex-end; gap:8px; margin-top:6px;}
 
+  /* ===== News ===== */
+  .news-source-row{display:flex; align-items:center; gap:8px; padding:8px 0; border-bottom:1px solid var(--line);}
+  .news-source-row:last-child{border-bottom:none;}
+  .news-source-row .name{flex:1; font-size:12.5px; font-weight:600; color:var(--text);}
+  .news-source-row .status{font-size:10px; color:var(--muted);}
+  .news-source-row button{flex:none;}
+  #newsListPane{display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; align-items:start;}
+  .news-card{
+    background:#ffffff; border:1px solid #e2e4ec; border-radius:10px; padding:11px 13px;
+    display:flex; flex-direction:column; gap:5px;
+  }
+  .news-card .news-title{font-size:12.5px; font-weight:700; color:#1c1f28; margin:0; cursor:pointer; line-height:1.32;}
+  .news-card .news-title:hover{color:var(--amber);}
+  .news-card .news-summary{font-size:10.5px; color:#5a5e6b; line-height:1.4; margin:0; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;}
+  .news-card .news-meta{display:flex; align-items:center; gap:6px; flex-wrap:wrap; font-size:9px; color:#9aa0b0; margin-top:2px;}
+  .news-card .news-source-badge{background:#eef1ff; color:#4f5fd6; font-weight:700; border-radius:6px; padding:1px 6px; text-transform:uppercase; letter-spacing:.01em; font-size:8.5px; text-decoration:none; cursor:default;}
+  a.news-source-badge{cursor:pointer;}
+  a.news-source-badge:hover{background:#dfe4ff;}
+  .news-card .news-tags{display:flex; gap:4px; flex-wrap:wrap;}
+  .news-card .news-tag{background:var(--panel-2); color:var(--muted); border-radius:6px; padding:1px 6px; font-size:8.5px;}
+  .news-card-footer{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:4px;}
+  .news-card .news-link{font-size:9.5px; color:var(--muted); text-decoration:none;}
+  .news-card .news-link:hover{color:var(--amber);}
+  .news-card .news-actions{display:flex; gap:6px;}
+  .news-icon-btn{
+    width:26px; height:26px; display:flex; align-items:center; justify-content:center;
+    font-size:13px; border-radius:7px; border:1px solid var(--line); background:var(--panel-2);
+    color:var(--muted); cursor:pointer; padding:0; line-height:1;
+  }
+  .news-icon-btn:hover{border-color:var(--amber); color:var(--amber);}
+  .news-icon-btn.active{background:var(--amber-dim); border-color:var(--amber); color:var(--amber);}
+  .news-icon-btn.danger:hover{border-color:var(--danger); color:var(--danger);}
+  .news-card.pinned{background:#fdeef6; border-color:var(--amber);}
+  .news-empty{grid-column:1/-1; text-align:center; padding:40px 20px; color:var(--muted); border:1px dashed var(--line); border-radius:12px;}
+  @media (max-width:1400px){ #newsListPane{grid-template-columns:repeat(2, 1fr);} }
+
   /* ===== Gestion des Best Of ===== */
   .bo-module-row{
     display:flex; align-items:flex-start; gap:10px;
@@ -373,6 +409,9 @@
     .logo-slot{flex-wrap:wrap;}
     .logo-slot .actions{flex-direction:row;}
 
+    /* ---- News ---- */
+    #newsListPane{grid-template-columns:1fr;}
+
     /* ---- Best Of ---- */
     .view-tab{font-size:11.5px; padding:10px 10px;}
     .bo-toolbar{justify-content:stretch;}
@@ -474,6 +513,7 @@
 <div class="view-nav">
   <button class="view-tab active" id="navConducteur">🗓️ Conducteur</button>
   <button class="view-tab" id="navBestOf">📼 Best Of</button>
+  <button class="view-tab" id="navNews">📰 News</button>
 </div>
 
 <div id="conducteurView">
@@ -727,6 +767,50 @@
   </div>
 </div>
 
+<div id="newsView" style="display:none;">
+  <div class="layout">
+    <div class="tools-pane">
+
+      <div class="card">
+        <h2>Sources</h2>
+        <p class="modal-sub" style="margin:0 0 10px;">Récupération automatique et gratuite, via un service de lecture tiers + traduction automatique. Ce sont des services gratuits non garantis : si une source ne répond plus, réessaie plus tard ou utilise l'ajout manuel ci-dessous.</p>
+        <div id="newsSourceList"></div>
+        <button class="primary small" id="btnRefreshAllNews" style="width:100%; margin-top:10px;">🔄 Actualiser toutes les sources</button>
+        <button class="small ghost" id="btnClearAllNews" style="width:100%; margin-top:6px;">🧹 Vider toutes les actus</button>
+      </div>
+
+      <div class="card">
+        <h2>Ajouter une actu manuellement</h2>
+        <div class="form-row">
+          <div class="field" style="flex:2;"><label>Titre (français)</label><input type="text" id="newsManualTitle" placeholder="Titre de l'actu"></div>
+        </div>
+        <div class="form-row">
+          <div class="field" style="flex:2;"><label>Résumé</label><input type="text" id="newsManualSummary" placeholder="Résumé court"></div>
+        </div>
+        <div class="form-row">
+          <div class="field" style="flex:2;"><label>Lien source</label><input type="text" id="newsManualUrl" placeholder="https://..."></div>
+          <div class="field"><label>Source</label><input type="text" id="newsManualSource" placeholder="ex: Oddity Central"></div>
+        </div>
+        <div class="form-row">
+          <div class="field" style="flex:2;"><label>Tags (séparés par des virgules)</label><input type="text" id="newsManualTags" placeholder="animaux, insolite..."></div>
+        </div>
+        <div class="submit-row"><button class="primary small" id="btnAddNewsManual">+ Ajouter l'actu</button></div>
+      </div>
+
+      <div class="card">
+        <h2>Recherche</h2>
+        <div class="bo-search-wrap">
+          <input type="text" id="newsSearch" placeholder="Recherche titre ou tag...">
+          <select id="newsSourceFilter"><option value="">Toutes les sources</option></select>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="rundown-pane" id="newsListPane"></div>
+  </div>
+</div>
+
 <div id="modalRoot"></div>
 
 <script>
@@ -886,6 +970,7 @@
     if(!s.modules) s.modules = {};
     if(!s.bestOf) s.bestOf = {};
     if(!s.emissions) s.emissions = {};
+    if(!s.news) s.news = {};
     return s;
   }
   function persistStore(){
@@ -1927,6 +2012,7 @@
         store.conducteurs = Object.assign({}, store.conducteurs, incoming.conducteurs||{});
         store.rubriques = Object.assign({}, store.rubriques, incoming.rubriques||{});
         store.emissions = Object.assign({}, store.emissions, incoming.emissions||{});
+        store.news = Object.assign({}, store.news, incoming.news||{});
         // compatibilité avec d'anciens exports (avant l'introduction des émissions)
         if(incoming.modules && Object.keys(incoming.modules).length){
           const id = uid("em");
@@ -3652,11 +3738,14 @@
 
   // ---- navigation & bindings ----
   let boInitialized = false;
+  let newsInitialized = false;
   function switchView(view){
     document.getElementById("conducteurView").style.display = view==="conducteur" ? "" : "none";
     document.getElementById("bestOfView").style.display = view==="bestof" ? "" : "none";
+    document.getElementById("newsView").style.display = view==="news" ? "" : "none";
     document.getElementById("navConducteur").classList.toggle("active", view==="conducteur");
     document.getElementById("navBestOf").classList.toggle("active", view==="bestof");
+    document.getElementById("navNews").classList.toggle("active", view==="news");
     if(view==="bestof" && !boInitialized){
       boInitialized = true;
       renderModuleFilterHourSelect();
@@ -3665,6 +3754,12 @@
       refreshEmissionSelect();
       boState = boEmissionId ? blankBoState() : null;
       renderBoAll();
+    }
+    if(view==="news" && !newsInitialized){
+      newsInitialized = true;
+      renderNewsSourceFilter();
+      renderNewsSourceList();
+      renderNewsList();
     }
     updateHeaderHeight();
   }
@@ -3787,9 +3882,354 @@
     setupCardFullscreenToggle("addModuleCard", "btnToggleAddModuleFullscreen");
   }
 
+  // ============================================================
+  // NEWS — actus insolites (récupération + traduction automatiques,
+  // via des services tiers gratuits non garantis)
+  // ============================================================
+  const NEWS_SOURCES = [
+    { id:"oddity", name:"Oddity Central", listUrls:[
+        "https://www.odditycentral.com/all-oddities",
+        "https://www.odditycentral.com/category/news",
+        "https://www.odditycentral.com/category/wtf"
+      ], lang:"en" },
+    { id:"orangeinsolite", name:"Orange Actu — Insolite", listUrls:[
+        "https://actu.orange.fr/societe/insolite/"
+      ], lang:"fr", truncateAt:"Afficher plus" },
+    { id:"actufrinsolite", name:"Actu.fr — Insolite", listUrls:[
+        "https://actu.fr/insolite"
+      ], lang:"fr" },
+    { id:"ouestfranceinsolite", name:"Ouest-France — Insolite", listUrls:[
+        "https://www.ouest-france.fr/insolite/"
+      ], lang:"fr" },
+    { id:"ladepecheinsolite", name:"La Dépêche — Insolite", listUrls:[
+        "https://www.ladepeche.fr/insolite/"
+      ], lang:"fr" },
+    { id:"laprovenceinsolite", name:"La Provence — Insolite", listUrls:[
+        "https://www.laprovence.com/actualites/insolite"
+      ], lang:"fr" },
+    { id:"leprogresinsolite", name:"Le Progrès — Insolite", listUrls:[
+        "https://www.leprogres.fr/insolite"
+      ], lang:"fr" },
+    { id:"lavoixdunordinsolite", name:"La Voix du Nord — Insolite", listUrls:[
+        "https://www.lavoixdunord.fr/la-une/insolite"
+      ], lang:"fr" },
+    { id:"sudouestinsolite", name:"Sud Ouest — Insolite", listUrls:[
+        "https://www.sudouest.fr/insolite/"
+      ], lang:"fr" },
+    { id:"dnainsolite", name:"DNA — Insolite", listUrls:[
+        "https://www.dna.fr/insolite"
+      ], lang:"fr" },
+    { id:"midilibreinsolite", name:"Midi Libre — Insolite", listUrls:[
+        "https://www.midilibre.fr/divertissement/insolite/"
+      ], lang:"fr" }
+  ];
+  const newsSourceStatus = {}; // id -> {state:'idle'|'loading'|'ok'|'error', message}
+
+  function hashString(str){
+    let h = 5381;
+    for(let i=0; i<str.length; i++){
+      h = ((h << 5) + h + str.charCodeAt(i)) | 0; // djb2
+    }
+    return (h >>> 0).toString(36);
+  }
+  function normalizeTitleForDedup(title){
+    return String(title||"")
+      .toLowerCase()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+      .replace(/[^a-z0-9 ]/g," ")
+      .replace(/\s+/g," ")
+      .trim();
+  }
+  function getItemSources(n){
+    return (n.sources && n.sources.length) ? n.sources : [{ source: n.source, sourceId: n.sourceId, url: n.url }];
+  }
+
+  async function fetchViaReader(url){
+    const readerUrl = "https://r.jina.ai/" + url;
+    const res = await fetch(readerUrl);
+    if(!res.ok) throw new Error("HTTP " + res.status);
+    return await res.text();
+  }
+
+  async function fetchRawViaCorsProxy(url){
+    const proxied = "https://api.allorigins.win/raw?url=" + encodeURIComponent(url);
+    const res = await fetch(proxied);
+    if(!res.ok) throw new Error("HTTP " + res.status);
+    return await res.text();
+  }
+
+  async function translateToFrench(text){
+    if(!text) return "";
+    const chunk = text.slice(0, 480);
+    try{
+      const res = await fetch("https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=fr&dt=t&q=" + encodeURIComponent(chunk));
+      if(!res.ok) throw new Error("HTTP " + res.status);
+      const data = await res.json();
+      return data[0].map(seg=> seg[0]).join("");
+    }catch(e){
+      console.warn("Traduction indisponible, texte original conservé.", e);
+      return text; // repli : on garde le texte original plutôt que de bloquer
+    }
+  }
+
+  // Repère "Titre\n[texte lien...](url)" et paragraphes courts dans le markdown renvoyé par le lecteur,
+  // heuristique volontairement simple et tolérante puisque la mise en page source peut varier.
+  // Reddit expose une vraie API JSON structurée : on l'utilise en priorité pour ces sources,
+  // bien plus fiable que le scraping de markdown. Retourne null si le contenu n'est pas du JSON exploitable
+  // (le lecteur tiers peut parfois envelopper la réponse différemment), auquel cas on retombe sur le parseur générique.
+  function parseRedditListing(text){
+    try{
+      const data = JSON.parse(text);
+      const children = data && data.data && data.data.children;
+      if(!Array.isArray(children)) return null;
+      const items = [];
+      children.forEach(c=>{
+        const p = c && c.data;
+        if(!p || p.stickied || p.over_18) return; // ignore les posts épinglés (règles du sub) et le contenu NSFW
+        const title = String(p.title||"").replace(/\s+/g," ").trim();
+        if(title.length < 8) return;
+        items.push({ title, url: "https://www.reddit.com" + p.permalink, excerpt:"" });
+      });
+      return items;
+    }catch(e){
+      return null;
+    }
+  }
+
+  function parseNewsListingMarkdown(md, baseHost){
+    const items = [];
+    md = md.replace(/!\[[^\]]*\]\([^)]*\)/g, ""); // retire les images (y compris imbriquées dans un lien), qui faussent sinon la capture du vrai titre
+    const linkRe = /\[([^\]]{8,140})\]\((https?:\/\/[^\s)]+)\)/g;
+    const seen = new Set();
+    let m;
+    while((m = linkRe.exec(md)) !== null){
+      let title = m[1].replace(/\s+/g," ").trim();
+      title = title.replace(/\s*\d[\d.,k]*:?\s*$/i, "").trim(); // retire les compteurs de vues/commentaires collés en fin de titre (ex: certains sites suisses/allemands/actu.fr)
+      const url = m[2];
+      if(!url.includes(baseHost)) continue;
+      if(/\.(jpg|jpeg|png|gif|webp|svg|avif)(\?|$)/i.test(url)) continue;
+      if(/\/(tag|tags|category|categories|author|authors|whois|profile|profiles|user|users|member|members|page|search)\//i.test(url)) continue; // liens de navigation, pas des articles
+      if(/\/(about|contact|contact-us|get-in-touch|tip-us-off|privacy|privacy-policy|tos|terms|terms-of-service|advertise|newsletter|subscribe|signup|sign-up|register|store|shop|forums?|disclaimer|cookies?|cookie-policy|faq|rules)\/?(\.html)?$/i.test(url)) continue; // pages légales/boilerplate
+      if(title.length < 12) continue;
+      if(title.trim().split(/\s+/).length < 4) continue; // les vrais titres d'actus sont des phrases ; les libellés de menu/catégorie (ex: "Faits divers", "Pied de page") tiennent en 1-3 mots
+      if(/^(home|about|contact|subscribe|privacy|cookie|menu|search|next|prev|share|read more|store|shop|forums?|faq|newsletter|advertise|careers?|sitemap|site map|comment policy|follow (us|on)|find us)\b/i.test(title)) continue;
+      if(/\b(refuser et|nos politiques|données personnelles|annonces légales|guide d.achat|l.agenda|agenda des|dernières actus|faits divers|loisirs.culture|mentions légales|politique de confidentialité|plan du site|conditions générales|recrutement|contactez.nous|qui sommes.nous|s.abonner|nos rubriques|toute l.actualité|pied de page|offres d.emploi|offre d.emploi|petites annonces|nos offres)\b/i.test(title)) continue;
+      if(/^environnement$/i.test(title)) continue;
+      if(seen.has(url)) continue;
+      seen.add(url);
+      items.push({ title, url, excerpt:"" });
+      if(items.length >= 20) break;
+    }
+    return items;
+  }
+
+  async function refreshNewsSource(sourceId){
+    const src = NEWS_SOURCES.find(s=> s.id===sourceId);
+    if(!src) return;
+    newsSourceStatus[sourceId] = { state:"loading", message:"Récupération en cours…" };
+    renderNewsSourceList();
+    try{
+      let allItems = [], anyOk = false, lastErr = null, lastRawSnippet = "";
+      for(const listUrl of src.listUrls){
+        const isReddit = listUrl.includes("reddit.com");
+        try{
+          let raw;
+          if(isReddit){
+            try{ raw = await fetchRawViaCorsProxy(listUrl); }
+            catch(e1){ raw = await fetchViaReader(listUrl); }
+          } else {
+            raw = await fetchViaReader(listUrl);
+          }
+          if(src.truncateAt){
+            const idx = raw.indexOf(src.truncateAt);
+            if(idx > -1) raw = raw.slice(0, idx);
+          }
+          lastRawSnippet = String(raw||"").replace(/\s+/g," ").trim().slice(0,160);
+          let found = isReddit ? parseRedditListing(raw) : null;
+          if(!found){
+            const host = new URL(listUrl).host.replace(/^www\./,"");
+            found = parseNewsListingMarkdown(raw, host);
+          }
+          if(found && found.length){ anyOk = true; allItems = allItems.concat(found); }
+        }catch(e){ lastErr = e; }
+      }
+      if(!anyOk) throw (lastErr || new Error("Aucun article détecté. Aperçu reçu : " + (lastRawSnippet || "(réponse vide)")));
+      let added = 0, already = 0;
+      for(const it of allItems){
+        const normTitle = normalizeTitleForDedup(it.title);
+        if(!normTitle) continue;
+        const id = "news_" + hashString(normTitle);
+        const existing = store.news[id];
+        if(existing){
+          const sources = getItemSources(existing);
+          if(sources.some(s=> s.sourceId === src.id)){ already++; continue; }
+          existing.sources = sources.concat([{ source: src.name, sourceId: src.id, url: it.url }]);
+          persistStore();
+          already++; // même histoire déjà connue, juste une source de plus ajoutée
+          continue;
+        }
+        const titleFr = src.lang==="fr" ? it.title : await translateToFrench(it.title);
+        store.news[id] = {
+          id, titleEn: it.title, titleFr, summaryFr:"", tags:[], pinned:false,
+          sources: [{ source: src.name, sourceId: src.id, url: it.url }],
+          fetchedAt: new Date().toISOString()
+        };
+        added++;
+      }
+      persistStore();
+      newsSourceStatus[sourceId] = { state:"ok", message: added + " nouvelle(s), " + already + " déjà connue(s)" };
+    }catch(e){
+      console.error(e);
+      newsSourceStatus[sourceId] = { state:"error", message: "Échec : " + e.message };
+    }
+    renderNewsSourceList();
+    renderNewsList();
+  }
+
+  async function refreshAllNews(){
+    for(const src of NEWS_SOURCES){
+      await refreshNewsSource(src.id);
+    }
+  }
+
+  function addNewsManual(){
+    const title = document.getElementById("newsManualTitle").value.trim();
+    if(!title){ alert("Le titre est obligatoire."); return; }
+    const summary = document.getElementById("newsManualSummary").value.trim();
+    const url = document.getElementById("newsManualUrl").value.trim();
+    const source = document.getElementById("newsManualSource").value.trim() || "Ajout manuel";
+    const tags = document.getElementById("newsManualTags").value.split(",").map(s=>s.trim()).filter(Boolean);
+    const normTitle = normalizeTitleForDedup(title);
+    const id = "news_" + hashString(normTitle);
+    const existing = store.news[id];
+    if(existing){
+      const sources = getItemSources(existing);
+      existing.sources = sources.concat([{ source, sourceId:"manual", url }]);
+      if(summary && !existing.summaryFr) existing.summaryFr = summary;
+      tags.forEach(t=>{ if(!existing.tags.includes(t)) existing.tags.push(t); });
+    } else {
+      store.news[id] = { id, titleEn:"", titleFr:title, summaryFr:summary, tags, pinned:false, sources:[{ source, sourceId:"manual", url }], fetchedAt:new Date().toISOString() };
+    }
+    persistStore();
+    ["newsManualTitle","newsManualSummary","newsManualUrl","newsManualSource","newsManualTags"].forEach(elId=> document.getElementById(elId).value = "");
+    renderNewsList();
+  }
+
+  function togglePinNews(id){
+    const n = store.news[id];
+    if(!n) return;
+    n.pinned = !n.pinned;
+    persistStore();
+    renderNewsList();
+  }
+
+  function deleteNews(id){
+    if(!confirm("Supprimer cette actu de la liste ?")) return;
+    delete store.news[id];
+    persistStore();
+    renderNewsList();
+  }
+
+  function clearAllNews(){
+    const count = Object.keys(store.news).length;
+    if(!count){ alert("Il n'y a aucune actu à vider."); return; }
+    if(!confirm("Vider les " + count + " actu(s) actuellement stockées (y compris les ajouts manuels) ? Tu pourras relancer \"Actualiser\" pour repartir sur une base propre.")) return;
+    store.news = {};
+    persistStore();
+    renderNewsList();
+    alert("Liste vidée.");
+  }
+
+  function renderNewsSourceList(){
+    const wrap = document.getElementById("newsSourceList");
+    if(!wrap) return;
+    wrap.innerHTML = NEWS_SOURCES.map(src=>{
+      const st = newsSourceStatus[src.id] || { state:"idle", message:"Jamais actualisée" };
+      const color = st.state==="error" ? "var(--danger)" : st.state==="ok" ? "#39c98a" : "var(--muted)";
+      return `
+        <div class="news-source-row">
+          <span class="name">${escapeHtml(src.name)}</span>
+          <span class="status" style="color:${color};">${st.state==="loading"?"⏳ ":""}${escapeHtml(st.message)}</span>
+          <button class="small ghost" data-src="${src.id}">🔄</button>
+        </div>`;
+    }).join("");
+    wrap.querySelectorAll("button[data-src]").forEach(btn=>
+      btn.addEventListener("click", ()=> refreshNewsSource(btn.dataset.src))
+    );
+  }
+
+  function renderNewsSourceFilter(){
+    const sel = document.getElementById("newsSourceFilter");
+    if(!sel || sel.options.length > 1) return;
+    NEWS_SOURCES.forEach(src=>{
+      const o = document.createElement("option"); o.value = src.name; o.textContent = src.name;
+      sel.appendChild(o);
+    });
+    const o = document.createElement("option"); o.value = "Ajout manuel"; o.textContent = "Ajout manuel";
+    sel.appendChild(o);
+  }
+
+  function renderNewsList(){
+    const pane = document.getElementById("newsListPane");
+    if(!pane) return;
+    const q = (document.getElementById("newsSearch").value || "").trim().toLowerCase();
+    const sourceFilter = document.getElementById("newsSourceFilter").value;
+    let items = Object.values(store.news);
+    if(q) items = items.filter(n=> n.titleFr.toLowerCase().includes(q) || n.tags.some(t=>t.toLowerCase().includes(q)));
+    if(sourceFilter) items = items.filter(n=> getItemSources(n).some(s=> s.source === sourceFilter));
+    items.sort((a,b)=> (b.pinned?1:0) - (a.pinned?1:0) || b.fetchedAt.localeCompare(a.fetchedAt));
+
+    if(!items.length){
+      pane.innerHTML = '<div class="news-empty">Aucune actu pour l\'instant. Clique sur "Actualiser toutes les sources", ou ajoute-en une manuellement.</div>';
+      return;
+    }
+    pane.innerHTML = items.map(n=>{
+      const srcs = getItemSources(n);
+      const badgesHtml = srcs.map(s=> s.url
+        ? `<a class="news-source-badge" href="${escapeHtml(s.url)}" target="_blank" rel="noopener">${escapeHtml(s.source)}</a>`
+        : `<span class="news-source-badge">${escapeHtml(s.source)}</span>`
+      ).join("");
+      return `
+      <div class="news-card${n.pinned?" pinned":""}">
+        <div class="news-title" data-open="${n.id}">${escapeHtml(n.titleFr || n.titleEn)}</div>
+        ${n.summaryFr ? `<p class="news-summary">${escapeHtml(n.summaryFr)}</p>` : ""}
+        <div class="news-meta">
+          ${badgesHtml}
+          <span>${new Date(n.fetchedAt).toLocaleDateString("fr-FR")}</span>
+          ${n.tags.length ? `<span class="news-tags">${n.tags.map(t=>`<span class="news-tag">${escapeHtml(t)}</span>`).join("")}</span>` : ""}
+        </div>
+        <div class="news-card-footer">
+          <span></span>
+          <span class="news-actions">
+            <button class="news-icon-btn${n.pinned?" active":""}" data-pin="${n.id}" title="${n.pinned?"Désépingler":"Épingler"}">📌</button>
+            <button class="news-icon-btn danger" data-del="${n.id}" title="Retirer">🗑</button>
+          </span>
+        </div>
+      </div>`;
+    }).join("");
+    pane.querySelectorAll("[data-pin]").forEach(el=> el.addEventListener("click", ()=> togglePinNews(el.dataset.pin)));
+    pane.querySelectorAll("[data-open]").forEach(el=> el.addEventListener("click", ()=>{
+      const n = store.news[el.dataset.open];
+      const srcs = n ? getItemSources(n) : [];
+      const firstUrl = srcs.map(s=>s.url).find(Boolean);
+      if(firstUrl) window.open(firstUrl, "_blank", "noopener");
+    }));
+    pane.querySelectorAll("[data-del]").forEach(el=> el.addEventListener("click", ()=> deleteNews(el.dataset.del)));
+  }
+
+  function bindNewsEvents(){
+    document.getElementById("navNews").addEventListener("click", ()=> switchView("news"));
+    document.getElementById("btnRefreshAllNews").addEventListener("click", refreshAllNews);
+    document.getElementById("btnClearAllNews").addEventListener("click", clearAllNews);
+    document.getElementById("btnAddNewsManual").addEventListener("click", addNewsManual);
+    document.getElementById("newsSearch").addEventListener("input", renderNewsList);
+    document.getElementById("newsSourceFilter").addEventListener("change", renderNewsList);
+  }
+
   init();
   document.getElementById("nameInput").value = allTypes()[activeType].label;
   bindBestOfEvents();
+  bindNewsEvents();
 })();
 </script>
 

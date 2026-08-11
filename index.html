@@ -825,9 +825,7 @@
   };
   const CUSTOM_PALETTE = ["#39c98a","#c98a39","#8a5fd6","#d64f7a","#4fc3d6","#d6c34f"];
 
-  let store = loadStore();
-  repairModuleStore();
-  migrateLegacyBestOfData();
+  let store = null;
   let boEmissionId = null;
   const BO_RUBRIQUES = [
     "ANNIE DINGO","APPEL AUDITEURS","BLIND TEST VITO","BOCCOLINI","LE BOURGMESTRE","CA EXISTE OU PAS",
@@ -957,13 +955,65 @@
   };
   let drag = null; // {hourIdx, blockIdx}
 
-  // ---------------- persistence ----------------
-  function loadStore(){
+  // ---------------- persistence (IndexedDB, avec repli localStorage) ----------------
+  const IDB_NAME = "radioProducerDB";
+  const IDB_STORE_NAME = "kv";
+  const IDB_KEY = "store";
+
+  let _idbConnPromise = null;
+  function idbOpen(){
+    if(_idbConnPromise) return _idbConnPromise;
+    _idbConnPromise = new Promise((resolve, reject)=>{
+      if(!window.indexedDB){ reject(new Error("IndexedDB indisponible")); return; }
+      const req = indexedDB.open(IDB_NAME, 1);
+      req.onupgradeneeded = ()=>{ req.result.createObjectStore(IDB_STORE_NAME); };
+      req.onsuccess = ()=> resolve(req.result);
+      req.onerror = ()=> { _idbConnPromise = null; reject(req.error); };
+    });
+    return _idbConnPromise;
+  }
+  async function idbGet(){
+    const db = await idbOpen();
+    return await new Promise((resolve, reject)=>{
+      const tx = db.transaction(IDB_STORE_NAME, "readonly");
+      const req = tx.objectStore(IDB_STORE_NAME).get(IDB_KEY);
+      req.onsuccess = ()=> resolve(req.result);
+      req.onerror = ()=> reject(req.error);
+    });
+  }
+  async function idbSet(value){
+    const db = await idbOpen();
+    return await new Promise((resolve, reject)=>{
+      const tx = db.transaction(IDB_STORE_NAME, "readwrite");
+      tx.objectStore(IDB_STORE_NAME).put(value, IDB_KEY);
+      tx.oncomplete = ()=> resolve(true);
+      tx.onerror = ()=> reject(tx.error);
+    });
+  }
+
+  async function loadStore(){
     let s;
     try{
-      const raw = localStorage.getItem(STORAGE_KEY);
-      s = raw ? JSON.parse(raw) : {};
-    }catch(e){ s = {}; }
+      s = await idbGet();
+      if(s === undefined || s === null){
+        // Rien encore dans IndexedDB : migration ponctuelle depuis l'ancien localStorage si des données y existent
+        let raw = null;
+        try{ raw = localStorage.getItem(STORAGE_KEY); }catch(e){}
+        s = raw ? JSON.parse(raw) : {};
+        if(raw){
+          try{
+            await idbSet(s);
+            localStorage.removeItem(STORAGE_KEY); // libère la place une fois la migration confirmée
+          }catch(e){ console.warn("Migration vers IndexedDB impossible, on reste sur localStorage pour cette session", e); }
+        }
+      }
+    }catch(e){
+      console.warn("IndexedDB indisponible, repli sur localStorage", e);
+      try{
+        const raw = localStorage.getItem(STORAGE_KEY);
+        s = raw ? JSON.parse(raw) : {};
+      }catch(e2){ s = {}; }
+    }
     if(!s.templates) s.templates = {};
     if(!s.conducteurs) s.conducteurs = {};
     if(!s.rubriques) s.rubriques = {};
@@ -973,8 +1023,12 @@
     if(!s.news) s.news = {};
     return s;
   }
+  let _persistChain = Promise.resolve();
   function persistStore(){
-    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(store)); }catch(e){ console.warn("Sauvegarde impossible", e); }
+    _persistChain = _persistChain.then(()=> idbSet(store)).catch(e=>{
+      console.warn("IndexedDB indisponible pour l'écriture, repli sur localStorage", e);
+      try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(store)); }catch(e2){ console.warn("Sauvegarde impossible", e2); }
+    });
   }
 
   // Répare les modules importés avec une ancienne version bugguée de l'outil, où la clé de
@@ -4226,10 +4280,15 @@
     document.getElementById("newsSourceFilter").addEventListener("change", renderNewsList);
   }
 
-  init();
-  document.getElementById("nameInput").value = allTypes()[activeType].label;
-  bindBestOfEvents();
-  bindNewsEvents();
+  (async function boot(){
+    store = await loadStore();
+    repairModuleStore();
+    migrateLegacyBestOfData();
+    init();
+    document.getElementById("nameInput").value = allTypes()[activeType].label;
+    bindBestOfEvents();
+    bindNewsEvents();
+  })();
 })();
 </script>
 

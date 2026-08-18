@@ -240,6 +240,8 @@
   .news-card .news-source-badge{background:#eef1ff; color:#4f5fd6; font-weight:700; border-radius:6px; padding:1px 6px; text-transform:uppercase; letter-spacing:.01em; font-size:8.5px; text-decoration:none; cursor:default;}
   a.news-source-badge{cursor:pointer;}
   a.news-source-badge:hover{background:#dfe4ff;}
+  .news-source-badge.paywalled{background:#fdf0e0; color:#b8720a;}
+  a.news-source-badge.paywalled:hover{background:#fbe3c4;}
   .news-card .news-tags{display:flex; gap:4px; flex-wrap:wrap;}
   .news-card .news-tag{background:var(--panel-2); color:var(--muted); border-radius:6px; padding:1px 6px; font-size:8.5px;}
   .news-card-footer{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:4px;}
@@ -777,24 +779,6 @@
         <div id="newsSourceList"></div>
         <button class="primary small" id="btnRefreshAllNews" style="width:100%; margin-top:10px;">🔄 Actualiser toutes les sources</button>
         <button class="small ghost" id="btnClearAllNews" style="width:100%; margin-top:6px;">🧹 Vider toutes les actus</button>
-      </div>
-
-      <div class="card">
-        <h2>Ajouter une actu manuellement</h2>
-        <div class="form-row">
-          <div class="field" style="flex:2;"><label>Titre (français)</label><input type="text" id="newsManualTitle" placeholder="Titre de l'actu"></div>
-        </div>
-        <div class="form-row">
-          <div class="field" style="flex:2;"><label>Résumé</label><input type="text" id="newsManualSummary" placeholder="Résumé court"></div>
-        </div>
-        <div class="form-row">
-          <div class="field" style="flex:2;"><label>Lien source</label><input type="text" id="newsManualUrl" placeholder="https://..."></div>
-          <div class="field"><label>Source</label><input type="text" id="newsManualSource" placeholder="ex: Oddity Central"></div>
-        </div>
-        <div class="form-row">
-          <div class="field" style="flex:2;"><label>Tags (séparés par des virgules)</label><input type="text" id="newsManualTags" placeholder="animaux, insolite..."></div>
-        </div>
-        <div class="submit-row"><button class="primary small" id="btnAddNewsManual">+ Ajouter l'actu</button></div>
       </div>
 
       <div class="card">
@@ -3967,6 +3951,15 @@
     { id:"lavoixdunordinsolite", name:"La Voix du Nord — Insolite", listUrls:[
         "https://www.lavoixdunord.fr/la-une/insolite"
       ], lang:"fr" },
+    { id:"20minutesinsolite", name:"20 Minutes — Insolite", listUrls:[
+        "https://www.20minutes.fr/insolite/"
+      ], lang:"fr" },
+    { id:"franceinfobizarre", name:"France Info — Bizarre", listUrls:[
+        "https://www.franceinfo.fr/decouverte/bizarre/"
+      ], lang:"fr" },
+    { id:"parismatchinsolite", name:"Paris Match — Insolite", listUrls:[
+        "https://www.parismatch.com/actu/insolite"
+      ], lang:"fr" },
     { id:"sudouestinsolite", name:"Sud Ouest — Insolite", listUrls:[
         "https://www.sudouest.fr/insolite/"
       ], lang:"fr" },
@@ -4050,6 +4043,8 @@
     }
   }
 
+  const PAYWALL_MARKERS = /(article r[ée]serv[ée] aux abonn[ée]s?|r[ée]serv[ée] aux abonn[ée]s?|contenu r[ée]serv[ée] aux abonn[ée]s?|article abonn[ée]s?|exclusif abonn[ée]s?)/i;
+
   function parseNewsListingMarkdown(md, baseHost){
     const items = [];
     md = md.replace(/!\[[^\]]*\]\([^)]*\)/g, ""); // retire les images (y compris imbriquées dans un lien), qui faussent sinon la capture du vrai titre
@@ -4071,7 +4066,12 @@
       if(/^environnement$/i.test(title)) continue;
       if(seen.has(url)) continue;
       seen.add(url);
-      items.push({ title, url, excerpt:"" });
+      let paywalled = false;
+      if(PAYWALL_MARKERS.test(title)){
+        paywalled = true;
+        title = title.replace(PAYWALL_MARKERS, "").replace(/\s{2,}/g," ").trim();
+      }
+      items.push({ title, url, excerpt:"", paywalled });
       if(items.length >= 20) break;
     }
     return items;
@@ -4117,7 +4117,7 @@
         if(existing){
           const sources = getItemSources(existing);
           if(sources.some(s=> s.sourceId === src.id)){ already++; continue; }
-          existing.sources = sources.concat([{ source: src.name, sourceId: src.id, url: it.url }]);
+          existing.sources = sources.concat([{ source: src.name, sourceId: src.id, url: it.url, paywalled: !!it.paywalled }]);
           persistStore();
           already++; // même histoire déjà connue, juste une source de plus ajoutée
           continue;
@@ -4125,7 +4125,7 @@
         const titleFr = src.lang==="fr" ? it.title : await translateToFrench(it.title);
         store.news[id] = {
           id, titleEn: it.title, titleFr, summaryFr:"", tags:[], pinned:false,
-          sources: [{ source: src.name, sourceId: src.id, url: it.url }],
+          sources: [{ source: src.name, sourceId: src.id, url: it.url, paywalled: !!it.paywalled }],
           fetchedAt: new Date().toISOString()
         };
         added++;
@@ -4146,27 +4146,13 @@
     }
   }
 
-  function addNewsManual(){
-    const title = document.getElementById("newsManualTitle").value.trim();
-    if(!title){ alert("Le titre est obligatoire."); return; }
-    const summary = document.getElementById("newsManualSummary").value.trim();
-    const url = document.getElementById("newsManualUrl").value.trim();
-    const source = document.getElementById("newsManualSource").value.trim() || "Ajout manuel";
-    const tags = document.getElementById("newsManualTags").value.split(",").map(s=>s.trim()).filter(Boolean);
-    const normTitle = normalizeTitleForDedup(title);
-    const id = "news_" + hashString(normTitle);
-    const existing = store.news[id];
-    if(existing){
-      const sources = getItemSources(existing);
-      existing.sources = sources.concat([{ source, sourceId:"manual", url }]);
-      if(summary && !existing.summaryFr) existing.summaryFr = summary;
-      tags.forEach(t=>{ if(!existing.tags.includes(t)) existing.tags.push(t); });
-    } else {
-      store.news[id] = { id, titleEn:"", titleFr:title, summaryFr:summary, tags, pinned:false, sources:[{ source, sourceId:"manual", url }], fetchedAt:new Date().toISOString() };
-    }
-    persistStore();
-    ["newsManualTitle","newsManualSummary","newsManualUrl","newsManualSource","newsManualTags"].forEach(elId=> document.getElementById(elId).value = "");
-    renderNewsList();
+  function searchFreeAlternative(id){
+    const n = store.news[id];
+    if(!n) return;
+    const title = n.titleFr || n.titleEn;
+    if(!title) return;
+    const query = '"' + title + '"';
+    window.open("https://www.google.com/search?q=" + encodeURIComponent(query), "_blank", "noopener");
   }
 
   function togglePinNews(id){
@@ -4240,9 +4226,10 @@
     pane.innerHTML = items.map(n=>{
       const srcs = getItemSources(n);
       const badgesHtml = srcs.map(s=> s.url
-        ? `<a class="news-source-badge" href="${escapeHtml(s.url)}" target="_blank" rel="noopener">${escapeHtml(s.source)}</a>`
-        : `<span class="news-source-badge">${escapeHtml(s.source)}</span>`
+        ? `<a class="news-source-badge${s.paywalled?" paywalled":""}" href="${escapeHtml(s.url)}" target="_blank" rel="noopener" title="${s.paywalled?"Article payant / réservé aux abonnés":"Source"}">${s.paywalled?"🔒 ":""}${escapeHtml(s.source)}</a>`
+        : `<span class="news-source-badge${s.paywalled?" paywalled":""}">${s.paywalled?"🔒 ":""}${escapeHtml(s.source)}</span>`
       ).join("");
+      const hasPaywalled = srcs.some(s=> s.paywalled);
       return `
       <div class="news-card${n.pinned?" pinned":""}">
         <div class="news-title" data-open="${n.id}">${escapeHtml(n.titleFr || n.titleEn)}</div>
@@ -4255,6 +4242,7 @@
         <div class="news-card-footer">
           <span></span>
           <span class="news-actions">
+            ${hasPaywalled ? `<button class="news-icon-btn" data-search="${n.id}" title="Chercher une version gratuite ailleurs">🔍</button>` : ""}
             <button class="news-icon-btn${n.pinned?" active":""}" data-pin="${n.id}" title="${n.pinned?"Désépingler":"Épingler"}">📌</button>
             <button class="news-icon-btn danger" data-del="${n.id}" title="Retirer">🗑</button>
           </span>
@@ -4262,6 +4250,7 @@
       </div>`;
     }).join("");
     pane.querySelectorAll("[data-pin]").forEach(el=> el.addEventListener("click", ()=> togglePinNews(el.dataset.pin)));
+    pane.querySelectorAll("[data-search]").forEach(el=> el.addEventListener("click", ()=> searchFreeAlternative(el.dataset.search)));
     pane.querySelectorAll("[data-open]").forEach(el=> el.addEventListener("click", ()=>{
       const n = store.news[el.dataset.open];
       const srcs = n ? getItemSources(n) : [];
@@ -4275,7 +4264,6 @@
     document.getElementById("navNews").addEventListener("click", ()=> switchView("news"));
     document.getElementById("btnRefreshAllNews").addEventListener("click", refreshAllNews);
     document.getElementById("btnClearAllNews").addEventListener("click", clearAllNews);
-    document.getElementById("btnAddNewsManual").addEventListener("click", addNewsManual);
     document.getElementById("newsSearch").addEventListener("input", renderNewsList);
     document.getElementById("newsSourceFilter").addEventListener("change", renderNewsList);
   }

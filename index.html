@@ -2177,7 +2177,8 @@
     const PASTEL_BY_TYPE = {
       musique: [253,241,248],
       pub: [244,245,248],
-      flash: [244,245,248]
+      flash: [255,249,219],
+      talk: [224,238,253]
     };
     const ICON_W = 15, ICON_GAP = 6;
     const availableTextWidth = contentColWidth - CONTENT_PAD_X*2 - ICON_W - ICON_GAP - (equipeLogo ? 30 : 0);
@@ -2223,15 +2224,30 @@
       if(!hour.blocks.length){
         body.push([{content:"Aucun bloc programmé pour cette heure", colSpan:3}]);
         rowMeta.push({ kind:"empty" });
+      } else {
+        // Étape 1 : construit le contenu à taille normale pour connaître la hauteur totale nécessaire
+        const prelim = hour.blocks.map(block=>{
+          const startLabel = absStartHMS(hIdx, cursor);
+          cursor += block.duration;
+          const t = types[block.type] || {label:block.type, color:"#9aa0b0"};
+          const lines = buildContentLines(block);
+          return { block, t, startLabel, lines, contentH: contentHeightFor(lines) };
+        });
+        const totalH = prelim.reduce((s,p)=> s + p.contentH, 0);
+        const availableHeight = pageHeight - headerHeight - 55; // doit correspondre à margin.bottom ci-dessous
+        // Étape 2 : si ça ne tiendrait pas sur une seule page, on réduit uniformément (texte, marges, icônes)
+        // pour que l'heure tienne toujours sur une page unique — jamais de découpe d'une heure sur 2 pages.
+        const scale = Math.max(0.42, Math.min(1, availableHeight / totalH));
+
+        prelim.forEach(p=>{
+          const lines = scale < 1 ? p.lines.map(l=> ({ ...l, size: l.size*scale, gapAfter: l.gapAfter*scale })) : p.lines;
+          const contentH = scale < 1
+            ? CONTENT_PAD_Y*2*scale + lines.reduce((s,l)=> s + (l.size + 3.5*scale) + l.gapAfter, 0)
+            : p.contentH;
+          body.push([ "", "", fmtMMSS(p.block.duration) ]);
+          rowMeta.push({ kind:"block", blockType:p.block.type, color:p.t.color, emoji:p.t.emoji||"🔖", startLabel:p.startLabel, lines, contentH, scale });
+        });
       }
-      hour.blocks.forEach((block)=>{
-        const startLabel = absStartHMS(hIdx, cursor);
-        cursor += block.duration;
-        const t = types[block.type] || {label:block.type, color:"#9aa0b0"};
-        const lines = buildContentLines(block);
-        body.push([ "", "", fmtMMSS(block.duration) ]);
-        rowMeta.push({ kind:"block", blockType:block.type, color:t.color, emoji:t.emoji||"🔖", startLabel, lines, contentH: contentHeightFor(lines) });
-      });
 
       doc.autoTable({
         body: body,
@@ -2267,6 +2283,7 @@
           if(data.section!=="body") return;
           const meta = rowMeta[data.row.index];
           if(!meta || meta.kind!=="block") return;
+          const s = meta.scale || 1;
 
           // liseré de couleur du type de bloc, dans la marge réservée à gauche de la table
           const rgb = hexToRgb(meta.color);
@@ -2275,32 +2292,33 @@
 
           if(data.column.index===0){
             // badge horaire, fuchsia, centré verticalement
-            const badgeW = HEURE_W - 14, badgeH = 22;
+            const badgeW = HEURE_W - 14, badgeH = 22*s;
             const bx = data.cell.x + (data.cell.width - badgeW)/2;
             const by = data.cell.y + (data.cell.height - badgeH)/2;
             doc.setFillColor(230,0,126);
-            doc.roundedRect(bx, by, badgeW, badgeH, 6, 6, "F");
-            doc.setFont(undefined,"bold"); doc.setFontSize(10.5); doc.setTextColor(255,255,255);
-            doc.text(meta.startLabel, bx+badgeW/2, by+badgeH/2+3.5, { align:"center" });
+            doc.roundedRect(bx, by, badgeW, badgeH, 6*s, 6*s, "F");
+            doc.setFont(undefined,"bold"); doc.setFontSize(10.5*s); doc.setTextColor(255,255,255);
+            doc.text(meta.startLabel, bx+badgeW/2, by+badgeH/2+3.5*s, { align:"center" });
           }
 
           if(data.column.index===1){
+            const iconSize = ICON_W*s;
             try{
               const durl = emojiToDataUrl(meta.emoji, emojiCache);
-              const iconY = data.cell.y + CONTENT_PAD_Y - 2;
-              doc.addImage(durl, "PNG", data.cell.x + CONTENT_PAD_X, iconY, ICON_W, ICON_W);
+              const iconY = data.cell.y + CONTENT_PAD_Y*s - 2*s;
+              doc.addImage(durl, "PNG", data.cell.x + CONTENT_PAD_X*s, iconY, iconSize, iconSize);
             }catch(e){}
-            const textX = data.cell.x + CONTENT_PAD_X + ICON_W + ICON_GAP;
-            let ty = data.cell.y + CONTENT_PAD_Y + (meta.lines[0] ? meta.lines[0].size*0.8 : 0);
+            const textX = data.cell.x + CONTENT_PAD_X*s + iconSize + ICON_GAP*s;
+            let ty = data.cell.y + CONTENT_PAD_Y*s + (meta.lines[0] ? meta.lines[0].size*0.8 : 0);
             meta.lines.forEach(l=>{
               doc.setFont(undefined, l.italic ? "italic" : (l.bold ? "bold" : "normal"));
               doc.setFontSize(l.size);
               doc.setTextColor(l.color[0], l.color[1], l.color[2]);
               doc.text(l.text, textX, ty);
-              ty += lineHeightFor(l) + l.gapAfter;
+              ty += (l.size + 3.5*s) + l.gapAfter;
             });
             if(meta.blockType==="talk" && equipeLogo){
-              const h = Math.min(22, data.cell.height-10);
+              const h = Math.min(22*s, data.cell.height-10);
               const w = h * (equipeLogo.ratio || 1);
               try{ doc.addImage(equipeLogo.dataUrl, "PNG", data.cell.x + data.cell.width - w - 8, data.cell.y + (data.cell.height-h)/2, w, h); }catch(e){}
             }

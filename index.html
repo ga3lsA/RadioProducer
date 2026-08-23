@@ -593,6 +593,7 @@
       <div id="musicHourBreakdown" style="display:none; margin-bottom:10px;"></div>
       <div class="music-entries" id="musicEntries"></div>
       <button class="small" id="btnAutoAssign" style="width:100%;" disabled>⚡ Assigner aux blocs Musique par heure</button>
+      <button class="small" id="btnAutoAssignAdBreaks" style="width:100%; margin-top:6px;" disabled>⏱ Mettre à jour les durées des Écrans Pub</button>
     </div>
 
     <div class="card">
@@ -1430,6 +1431,33 @@
   }
 
   // ---------------- import xls (calibré sur export GSelector) ----------------
+  // Repère les écrans publicitaires dans le même export GSelector : le marqueur "$ Ecran Publicitaire $"
+  // peut apparaître dans n'importe quelle colonne texte de la ligne (pas forcément la même position que
+  // l'artiste/titre musique), donc on scanne toutes les cellules texte de chaque ligne datée. La durée
+  // exacte figure dans la même colonne Durée que pour la musique.
+  function parseAdBreakRows(rows){
+    const entries = [];
+    for(let i=0;i<rows.length;i++){
+      const row = rows[i] || [];
+      const v0 = row[0];
+      if(!(v0 instanceof Date)) continue;
+      const isAdBreak = row.some(cell => typeof cell === "string" && /ecran\s*publicitaire/i.test(cell));
+      if(!isAdBreak) continue;
+      const durStr = (typeof row[11] === "string") ? row[11].trim() : "";
+      const parsedDur = parseDurationMMSS(durStr);
+      if(!parsedDur) continue; // durée absente ou 0 : rien d'exploitable pour cette ligne
+      const hh = v0.getHours(), mm = v0.getMinutes(), ss = v0.getSeconds();
+      entries.push({
+        id: uid("ab"),
+        time: String(hh).padStart(2,"0")+":"+String(mm).padStart(2,"0")+":"+String(ss).padStart(2,"0"),
+        hour: hh,
+        absSec: hh*3600+mm*60+ss,
+        duration: parsedDur
+      });
+    }
+    return entries;
+  }
+
   async function importMusicXls(file){
     document.getElementById("musicStatus").textContent = "Lecture du fichier Excel en cours…";
     try{
@@ -1438,11 +1466,13 @@
       const ws = wb.Sheets[wb.SheetNames[0]];
       const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:null, raw:true });
       const entries = parseGSelectorRows(rows);
+      const adBreakEntries = parseAdBreakRows(rows);
       if(!entries.length){
         document.getElementById("musicStatus").textContent = "Aucun titre détecté dans ce fichier. La structure ne correspond peut-être pas à l'export GSelector attendu (colonnes Heure / Artiste / Titre / Durée).";
         return;
       }
-      state.musicImport = { fileName: file.name, sourceType:"xls", entries };
+      state.musicImport = { fileName: file.name, sourceType:"xls", entries, adBreakEntries };
+      document.getElementById("btnAutoAssignAdBreaks").disabled = !adBreakEntries.length;
       renderMusicPanel();
       renderRundown();
     }catch(e){
@@ -1675,6 +1705,52 @@
 
     renderRundown(); renderSummary();
     alert(`Assignation terminée (${filled} bloc(s) renseigné(s)).\n\nCorrespondance heure du conducteur → heure du fichier :\n\n` + report.join("\n"));
+  }
+
+  // Écrans pub : même principe que la musique (regroupement par heure du fichier, correspondance
+  // dans l'ordre chronologique avec les blocs "Écran Pub" prévus), mais on ne touche qu'à la durée —
+  // le contenu du bloc (nom, etc.) reste inchangé, seule la durée indicative est remplacée par la
+  // durée exacte trouvée dans le fichier.
+  function assignAdBreaksByHourXls(){
+    const adEntries = (state.musicImport && state.musicImport.adBreakEntries) || [];
+    if(!adEntries.length){ alert("Aucun écran publicitaire détecté dans le fichier importé."); return; }
+    const byHour = {};
+    adEntries.forEach(e=>{
+      if(e.hour==null) return;
+      (byHour[e.hour] = byHour[e.hour] || []).push(e);
+    });
+    Object.keys(byHour).forEach(h=> byHour[h].sort((a,b)=>a.absSec-b.absSec));
+
+    const report = [];
+    let filled = 0;
+
+    state.hours.forEach((hourObj, hIdx)=>{
+      const autoFileHour = clockHourOf(hIdx);
+      const clockHour = hourObj.fileHour!=null ? hourObj.fileHour : autoFileHour;
+      const pubBlocks = hourObj.blocks.filter(b=>b.type==="pub");
+
+      if(clockHour == null){
+        if(pubBlocks.length) report.push(`${hourLabel(hIdx)} : aucune heure de fichier sélectionnée pour ce bloc — choisis-la dans le menu déroulant au-dessus de cette heure.`);
+        return;
+      }
+      const clockLabel = String(clockHour).padStart(2,"0")+":00";
+      const fileEntries = (byHour[clockHour] || []).slice();
+      const n = Math.min(fileEntries.length, pubBlocks.length);
+
+      for(let k=0;k<n;k++){
+        pubBlocks[k].duration = fileEntries[k].duration;
+        filled++;
+      }
+
+      if(fileEntries.length !== pubBlocks.length){
+        report.push(`${hourLabel(hIdx)} (fichier ${clockLabel}) : ${fileEntries.length} écran(s) pub dans le fichier pour ${pubBlocks.length} bloc(s) Écran Pub prévu(s) — vérifie s'il en manque un ou s'il y en a un en trop dans le modèle.`);
+      } else if(pubBlocks.length){
+        report.push(`${hourLabel(hIdx)} (fichier ${clockLabel}) : ${fileEntries.length} écran(s) pub — durées mises à jour, OK.`);
+      }
+    });
+
+    renderRundown(); renderSummary();
+    alert(`Durées des Écrans Pub mises à jour (${filled} bloc(s)).\n\nCorrespondance heure du conducteur → heure du fichier :\n\n` + report.join("\n"));
   }
 
   // PDF générique : correspondance par horaire le plus proche (comportement précédent)
@@ -2417,6 +2493,7 @@
       e.target.value = "";
     });
     document.getElementById("btnAutoAssign").addEventListener("click", autoAssignMusic);
+    document.getElementById("btnAutoAssignAdBreaks").addEventListener("click", assignAdBreaksByHourXls);
 
     document.getElementById("tplSelect").addEventListener("change", e=> loadTemplate(e.target.value));
     document.getElementById("btnTplSave").addEventListener("click", ()=> saveTemplate(false));

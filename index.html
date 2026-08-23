@@ -2121,10 +2121,10 @@
     const equipeLogo = state.logos.equipe;
 
     // Bandeau d'en-tête : hauteur fixe, redessiné identique en haut de chaque page/heure
-    const BAND_H = 96; // environ le double d'une ligne normale
-    const RADIO_LOGO_H = 36;
-    const EMISSION_LOGO_H = 82;
-    const headerHeight = margin + BAND_H + 18;
+    const BAND_H = 60; // réduit pour laisser plus de place au contenu de l'heure
+    const RADIO_LOGO_H = 26;
+    const EMISSION_LOGO_H = 54;
+    const headerHeight = margin + BAND_H + 12;
 
     function drawHourPageHeader(hIdx){
       const bandTop = margin;
@@ -2141,18 +2141,18 @@
         try{ doc.addImage(emissionLogo.dataUrl, "PNG", pageWidth - margin - w, bandCenterY - h/2, w, h); }catch(e){}
       }
 
-      let ty = bandTop + 20;
-      doc.setFont(undefined, "bold"); doc.setFontSize(15); doc.setTextColor(20,22,28);
+      let ty = bandTop + 14;
+      doc.setFont(undefined, "bold"); doc.setFontSize(12); doc.setTextColor(20,22,28);
       doc.text(state.name, pageWidth/2, ty, { align:"center" });
 
       if(state.claim){
-        ty += 15;
-        doc.setFont(undefined, "italic"); doc.setFontSize(10.5); doc.setTextColor(100,104,116);
+        ty += 11;
+        doc.setFont(undefined, "italic"); doc.setFontSize(9); doc.setTextColor(100,104,116);
         doc.text(state.claim, pageWidth/2, ty, { align:"center" });
       }
 
-      ty += 15;
-      doc.setFont(undefined, "normal"); doc.setFontSize(9.5); doc.setTextColor(150,150,158);
+      ty += 11;
+      doc.setFont(undefined, "normal"); doc.setFontSize(8.5); doc.setTextColor(150,150,158);
       const dateHourLine = formatDateFr(state.date) + "   ·   " + hourClockLabel(hIdx);
       doc.text(dateHourLine, pageWidth/2, ty, { align:"center" });
 
@@ -2187,18 +2187,18 @@
       const lines = [];
       if(block.type === "musique"){
         if(block.cacheEcran){
-          lines.push({ text:"ÉCRAN LOCAL", size:11.5, bold:true, color:[24,26,32], gapAfter:3 });
-          lines.push({ text:"Cache écran", size:9, bold:true, color:[230,0,126], gapAfter:0 });
+          lines.push({ text:"ÉCRAN LOCAL", size:18, bold:true, color:[24,26,32], gapAfter:4 });
+          lines.push({ text:"Cache écran", size:10, bold:true, color:[230,0,126], gapAfter:0 });
         } else if(block.musicTitle){
-          lines.push({ text: (block.musicArtist||"").toUpperCase() || "ARTISTE INCONNU", size:11.5, bold:true, color:[24,26,32], gapAfter:3 });
+          lines.push({ text: (block.musicArtist||"").toUpperCase() || "ARTISTE INCONNU", size:18, bold:true, color:[24,26,32], gapAfter:4 });
           doc.setFont(undefined,"normal"); doc.setFontSize(10);
           const wrapped = doc.splitTextToSize(toTitleCase(block.musicTitle), availableTextWidth);
           wrapped.forEach((l,i)=> lines.push({ text:l, size:10, bold:false, italic:false, color:[120,124,136], gapAfter: i===wrapped.length-1 ? 0 : 2 }));
         } else {
-          lines.push({ text: block.name||"Musique", size:11, bold:false, italic:true, color:[170,170,178], gapAfter:0 });
+          lines.push({ text: block.name||"Musique", size:16, bold:false, italic:true, color:[170,170,178], gapAfter:0 });
         }
       } else {
-        lines.push({ text: block.name || types[block.type]?.label || "", size:11.5, bold:true, color:[24,26,32], gapAfter: block.notes ? 5 : 0 });
+        lines.push({ text: block.name || types[block.type]?.label || "", size:18, bold:true, color:[24,26,32], gapAfter: block.notes ? 6 : 0 });
         if(block.notes){
           doc.setFont(undefined,"normal"); doc.setFontSize(9.5);
           const wrapped = doc.splitTextToSize(block.notes, availableTextWidth);

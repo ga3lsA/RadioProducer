@@ -2186,14 +2186,14 @@
     function buildContentLines(block){
       const lines = [];
       if(block.type === "musique"){
-        if(block.musicTitle){
+        if(block.cacheEcran){
+          lines.push({ text:"ÉCRAN LOCAL", size:11.5, bold:true, color:[24,26,32], gapAfter:3 });
+          lines.push({ text:"Cache écran", size:9, bold:true, color:[230,0,126], gapAfter:0 });
+        } else if(block.musicTitle){
           lines.push({ text: (block.musicArtist||"").toUpperCase() || "ARTISTE INCONNU", size:11.5, bold:true, color:[24,26,32], gapAfter:3 });
           doc.setFont(undefined,"normal"); doc.setFontSize(10);
           const wrapped = doc.splitTextToSize(toTitleCase(block.musicTitle), availableTextWidth);
-          wrapped.forEach((l,i)=> lines.push({ text:l, size:10, bold:false, italic:false, color:[120,124,136], gapAfter: i===wrapped.length-1 && !block.cacheEcran ? 0 : 2 }));
-          if(block.cacheEcran){
-            lines.push({ text:"CACHE ÉCRAN", size:8.5, bold:true, color:[230,0,126], gapAfter:0 });
-          }
+          wrapped.forEach((l,i)=> lines.push({ text:l, size:10, bold:false, italic:false, color:[120,124,136], gapAfter: i===wrapped.length-1 ? 0 : 2 }));
         } else {
           lines.push({ text: block.name||"Musique", size:11, bold:false, italic:true, color:[170,170,178], gapAfter:0 });
         }
@@ -2308,13 +2308,14 @@
               const iconY = data.cell.y + CONTENT_PAD_Y*s - 2*s;
               doc.addImage(durl, "PNG", data.cell.x + CONTENT_PAD_X*s, iconY, iconSize, iconSize);
             }catch(e){}
-            const textX = data.cell.x + CONTENT_PAD_X*s + iconSize + ICON_GAP*s;
+            const textStartX = data.cell.x + CONTENT_PAD_X*s + iconSize + ICON_GAP*s;
+            const textCenterX = textStartX + (availableTextWidth*s)/2;
             let ty = data.cell.y + CONTENT_PAD_Y*s + (meta.lines[0] ? meta.lines[0].size*0.8 : 0);
             meta.lines.forEach(l=>{
               doc.setFont(undefined, l.italic ? "italic" : (l.bold ? "bold" : "normal"));
               doc.setFontSize(l.size);
               doc.setTextColor(l.color[0], l.color[1], l.color[2]);
-              doc.text(l.text, textX, ty);
+              doc.text(l.text, textCenterX, ty, { align:"center" });
               ty += (l.size + 3.5*s) + l.gapAfter;
             });
             if(meta.blockType==="talk" && equipeLogo){

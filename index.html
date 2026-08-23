@@ -2182,26 +2182,28 @@
     };
     const ICON_W = 15, ICON_GAP = 6;
     const availableTextWidth = contentColWidth - CONTENT_PAD_X*2 - ICON_W - ICON_GAP - (equipeLogo ? 30 : 0);
+    const availableTextWidthNoIcon = availableTextWidth + ICON_W + ICON_GAP;
 
     function buildContentLines(block){
       const lines = [];
       if(block.type === "musique"){
         if(block.cacheEcran){
-          lines.push({ text:"ÉCRAN LOCAL", size:18, bold:true, color:[24,26,32], gapAfter:4 });
+          lines.push({ text:"ÉCRAN LOCAL", size:20, bold:true, color:[24,26,32], gapAfter:4 });
           lines.push({ text:"Cache écran", size:10, bold:true, color:[230,0,126], gapAfter:0 });
         } else if(block.musicTitle){
-          lines.push({ text: (block.musicArtist||"").toUpperCase() || "ARTISTE INCONNU", size:18, bold:true, color:[24,26,32], gapAfter:4 });
+          lines.push({ text: (block.musicArtist||"").toUpperCase() || "ARTISTE INCONNU", size:20, bold:true, color:[24,26,32], gapAfter:4 });
           doc.setFont(undefined,"normal"); doc.setFontSize(10);
           const wrapped = doc.splitTextToSize(toTitleCase(block.musicTitle), availableTextWidth);
           wrapped.forEach((l,i)=> lines.push({ text:l, size:10, bold:false, italic:false, color:[120,124,136], gapAfter: i===wrapped.length-1 ? 0 : 2 }));
         } else {
-          lines.push({ text: block.name||"Musique", size:16, bold:false, italic:true, color:[170,170,178], gapAfter:0 });
+          lines.push({ text: block.name||"Musique", size:17, bold:false, italic:true, color:[170,170,178], gapAfter:0 });
         }
       } else {
-        lines.push({ text: block.name || types[block.type]?.label || "", size:18, bold:true, color:[24,26,32], gapAfter: block.notes ? 6 : 0 });
+        lines.push({ text: block.name || types[block.type]?.label || "", size:20, bold:true, color:[24,26,32], gapAfter: block.notes ? 6 : 0 });
         if(block.notes){
           doc.setFont(undefined,"normal"); doc.setFontSize(9.5);
-          const wrapped = doc.splitTextToSize(block.notes, availableTextWidth);
+          const wrapWidth = block.type==="talk" ? availableTextWidthNoIcon : availableTextWidth;
+          const wrapped = doc.splitTextToSize(block.notes, wrapWidth);
           wrapped.forEach((l,i)=> lines.push({ text:l, size:9.5, bold:false, color:[95,99,112], gapAfter: i===wrapped.length-1?0:2 }));
         }
       }
@@ -2302,14 +2304,20 @@
           }
 
           if(data.column.index===1){
+            const isTalk = meta.blockType === "talk";
             const iconSize = ICON_W*s;
-            try{
-              const durl = emojiToDataUrl(meta.emoji, emojiCache);
-              const iconY = data.cell.y + CONTENT_PAD_Y*s - 2*s;
-              doc.addImage(durl, "PNG", data.cell.x + CONTENT_PAD_X*s, iconY, iconSize, iconSize);
-            }catch(e){}
-            const textStartX = data.cell.x + CONTENT_PAD_X*s + iconSize + ICON_GAP*s;
-            const textCenterX = textStartX + (availableTextWidth*s)/2;
+            if(!isTalk){
+              try{
+                const durl = emojiToDataUrl(meta.emoji, emojiCache);
+                const iconY = data.cell.y + CONTENT_PAD_Y*s - 2*s;
+                doc.addImage(durl, "PNG", data.cell.x + CONTENT_PAD_X*s, iconY, iconSize, iconSize);
+              }catch(e){}
+            }
+            const textStartX = isTalk
+              ? data.cell.x + CONTENT_PAD_X*s
+              : data.cell.x + CONTENT_PAD_X*s + iconSize + ICON_GAP*s;
+            const textWidth = (isTalk ? availableTextWidthNoIcon : availableTextWidth) * s;
+            const textCenterX = textStartX + textWidth/2;
             let ty = data.cell.y + CONTENT_PAD_Y*s + (meta.lines[0] ? meta.lines[0].size*0.8 : 0);
             meta.lines.forEach(l=>{
               doc.setFont(undefined, l.italic ? "italic" : (l.bold ? "bold" : "normal"));

@@ -1366,7 +1366,9 @@
     const mi = state.musicImport;
     if(mi.fileName){
       const kindLabel = mi.sourceType === "xls" ? "xls (GSelector)" : mi.sourceType === "gselector" ? "PDF (GSelector)" : "PDF (générique)";
-      status.textContent = `Fichier importé (${kindLabel}) : ${mi.fileName} — ${mi.entries.length} titre(s) détecté(s). Corrige les champs si besoin puis assigne aux blocs Musique.`;
+      const adCount = (mi.adBreakEntries || []).length;
+      const adSuffix = adCount ? ` — ${adCount} écran(s) pub détecté(s).` : "";
+      status.textContent = `Fichier importé (${kindLabel}) : ${mi.fileName} — ${mi.entries.length} titre(s) détecté(s).${adSuffix} Corrige les champs si besoin puis assigne aux blocs Musique.`;
     } else {
       status.textContent = "Aucun fichier importé. Formats xls et PDF calibrés sur l'export type GSelector (Heure / Artiste / Titre / Durée) ; les autres PDF utilisent une détection générique de secours.";
     }
@@ -1445,7 +1447,10 @@
       if(!isAdBreak) continue;
       const durStr = (typeof row[11] === "string") ? row[11].trim() : "";
       const parsedDur = parseDurationMMSS(durStr);
-      if(!parsedDur) continue; // durée absente ou 0 : rien d'exploitable pour cette ligne
+      if(parsedDur == null) continue; // durée absente ou mal formée : rien d'exploitable pour cette ligne
+      // Une durée à 00:00 (parsedDur === 0) est en revanche conservée : c'est un écran pub réel dans le
+      // conducteur, juste sans durée exploitable. Le supprimer décalerait la correspondance avec tous
+      // les écrans pub suivants de l'heure.
       const hh = v0.getHours(), mm = v0.getMinutes(), ss = v0.getSeconds();
       entries.push({
         id: uid("ab"),
@@ -1538,14 +1543,18 @@
       const pdf = await pdfjsLib.getDocument({data:buf}).promise;
 
       let entries = [];
+      let adBreakEntries = [];
       for(let p=1; p<=pdf.numPages; p++){
         const page = await pdf.getPage(p);
         const content = await page.getTextContent();
-        entries = entries.concat(extractGSelectorPdfEntries(content.items));
+        const lines = buildPdfLines(content.items);
+        entries = entries.concat(extractGSelectorPdfEntries(lines));
+        adBreakEntries = adBreakEntries.concat(extractGSelectorPdfAdBreaks(lines));
       }
 
       if(entries.length){
-        state.musicImport = { fileName: file.name, sourceType:"gselector", entries };
+        state.musicImport = { fileName: file.name, sourceType:"gselector", entries, adBreakEntries };
+        document.getElementById("btnAutoAssignAdBreaks").disabled = !adBreakEntries.length;
       } else {
         // repli : PDF non structuré comme un export GSelector -> détection générique par horaires
         let fullText = "";
@@ -1569,7 +1578,10 @@
   // repérées par leur position horizontale sur la page, ex. Europe 2 et RFM partagent la même mise en page).
   // Chaque page est reconstruite ligne par ligne (regroupement par position verticale, tri par position
   // horizontale) pour retrouver l'ordre de lecture réel, que l'extraction brute du PDF ne respecte pas toujours.
-  function extractGSelectorPdfEntries(items){
+  // Reconstruit les lignes du PDF (regroupement par position verticale, tri par position horizontale)
+  // à partir des items bruts de pdf.js, une fois par page. Réutilisé pour extraire à la fois les titres
+  // musicaux (extractGSelectorPdfEntries) et les écrans publicitaires (extractGSelectorPdfAdBreaks).
+  function buildPdfLines(items){
     const words = items
       .map(it=>({ text: it.str, x: it.transform[4], y: it.transform[5] }))
       .filter(w=> w.text.trim() !== "");
@@ -1586,7 +1598,10 @@
       line.words.push(w);
     });
     lines.forEach(l=> l.words.sort((a,b)=> a.x-b.x));
+    return lines;
+  }
 
+  function extractGSelectorPdfEntries(lines){
     const timeRe = /^\d{2}:\d{2}:\d{2}$/;
     const entries = [];
     lines.forEach(line=>{
@@ -1617,6 +1632,44 @@
         id: uid("me"), time: timeStr, hour,
         absSec: hour*3600 + parseInt(timeStr.slice(3,5),10)*60 + parseInt(timeStr.slice(6,8),10),
         title, artist, duration
+      });
+    });
+    return entries;
+  }
+
+  // Écrans publicitaires dans le PDF GSelector : contrairement aux lignes de musique, ces lignes n'ont
+  // jamais d'artiste (colonne x<275 vide) — c'est justement pourquoi extractGSelectorPdfEntries les
+  // ignorait (il exige artist ET title). Ici on ne demande qu'un texte "$ Ecran Publicitaire $" quelque
+  // part sur la ligne (peu importe la colonne exacte) et une durée mm:ss dans la zone Intro/Durée.
+  function extractGSelectorPdfAdBreaks(lines){
+    const timeRe = /^\d{2}:\d{2}:\d{2}$/;
+    const entries = [];
+    lines.forEach(line=>{
+      const w = line.words;
+      if(!w.length || w[0].x > 60 || !timeRe.test(w[0].text)) return;
+      const timeStr = w[0].text;
+
+      const restText = w.slice(1).map(x=>x.text).join(" ");
+      if(!/ecran\s*publicitaire/i.test(restText)) return;
+
+      const durParts = [];
+      for(let i=1;i<w.length;i++){
+        if(w[i].x >= 275 && w[i].x < 615) durParts.push(w[i].text);
+      }
+      const durMatches = [...durParts.join(" ").matchAll(/(\d{1,2}):([0-5]\d)/g)];
+      if(!durMatches.length) return;
+      const last = durMatches[durMatches.length-1];
+      const duration = parseInt(last[1],10)*60 + parseInt(last[2],10);
+      // Une durée à 00:00 est conservée telle quelle (écran pub réel dans le conducteur, juste sans
+      // durée exploitable) : la retirer décalerait la correspondance avec tous les écrans pub suivants
+      // de l'heure. C'est à l'assignation (assignAdBreaksByHourXls) qu'on décide de ne pas écraser la
+      // durée du bloc dans ce cas, tout en gardant le rang consommé.
+
+      const hour = parseInt(timeStr.slice(0,2),10);
+      entries.push({
+        id: uid("ab"), time: timeStr, hour,
+        absSec: hour*3600 + parseInt(timeStr.slice(3,5),10)*60 + parseInt(timeStr.slice(6,8),10),
+        duration
       });
     });
     return entries;
@@ -1737,15 +1790,24 @@
       const fileEntries = (byHour[clockHour] || []).slice();
       const n = Math.min(fileEntries.length, pubBlocks.length);
 
+      let zeroDur = 0;
       for(let k=0;k<n;k++){
-        pubBlocks[k].duration = fileEntries[k].duration;
+        // Une durée à 00:00 dans le fichier signale un écran pub réel mais sans durée exploitable :
+        // on consomme quand même le rang (pour ne pas décaler les écrans pub suivants de l'heure)
+        // mais on laisse la durée du bloc telle quelle plutôt que de la remplacer par 0.
+        if(fileEntries[k].duration){
+          pubBlocks[k].duration = fileEntries[k].duration;
+        } else {
+          zeroDur++;
+        }
         filled++;
       }
 
       if(fileEntries.length !== pubBlocks.length){
         report.push(`${hourLabel(hIdx)} (fichier ${clockLabel}) : ${fileEntries.length} écran(s) pub dans le fichier pour ${pubBlocks.length} bloc(s) Écran Pub prévu(s) — vérifie s'il en manque un ou s'il y en a un en trop dans le modèle.`);
       } else if(pubBlocks.length){
-        report.push(`${hourLabel(hIdx)} (fichier ${clockLabel}) : ${fileEntries.length} écran(s) pub — durées mises à jour, OK.`);
+        const zeroNote = zeroDur ? ` (dont ${zeroDur} sans durée exploitable dans le fichier — durée du bloc laissée telle quelle)` : "";
+        report.push(`${hourLabel(hIdx)} (fichier ${clockLabel}) : ${fileEntries.length} écran(s) pub — durées mises à jour, OK.${zeroNote}`);
       }
     });
 
@@ -2198,7 +2260,7 @@
 
     // Bandeau d'en-tête : hauteur fixe, redessiné identique en haut de chaque page/heure
     const BAND_H = 42; // réduit au minimum lisible pour laisser un maximum de place au contenu de l'heure
-    const RADIO_LOGO_H = 20;
+    const RADIO_LOGO_H = 30; // agrandi (avant 20) — le bandeau restant centré verticalement, ça tient sans changer BAND_H
     const EMISSION_LOGO_H = 38;
     const headerHeight = margin + BAND_H + 8;
     const FOOTER_MARGIN = 30;
@@ -2218,12 +2280,12 @@
         try{ doc.addImage(emissionLogo.dataUrl, "PNG", pageWidth - margin - w, bandCenterY - h/2, w, h); }catch(e){}
       }
 
-      let ty = bandTop + 11;
-      doc.setFont(undefined, "bold"); doc.setFontSize(10.5); doc.setTextColor(20,22,28);
+      let ty = bandTop + 13;
+      doc.setFont(undefined, "bold"); doc.setFontSize(13); doc.setTextColor(20,22,28); // taille du nom d'émission agrandie (avant 10.5)
       doc.text(state.name, pageWidth/2, ty, { align:"center" });
 
       if(state.claim){
-        ty += 9;
+        ty += 11;
         doc.setFont(undefined, "italic"); doc.setFontSize(8); doc.setTextColor(100,104,116);
         doc.text(state.claim, pageWidth/2, ty, { align:"center" });
       }
@@ -2253,8 +2315,8 @@
     const contentColWidth = contentWidth - 10 - HEURE_W - DUR_W;
     const PASTEL_BY_TYPE = {
       musique: [253,241,248],
-      pub: [244,245,248],
-      flash: [255,249,219],
+      pub: [230,0,126],
+      flash: [0,0,0],
       talk: [224,238,253]
     };
     const ICON_W = 15, ICON_GAP = 6;
@@ -2263,23 +2325,36 @@
     function buildContentLines(block){
       const lines = [];
       if(block.type === "musique"){
+        // Contenu Musique : toujours en majuscules, taille 15.
         if(block.cacheEcran){
-          lines.push({ text:"ÉCRAN LOCAL", size:20, bold:true, color:[24,26,32], gapAfter:4 });
-          lines.push({ text:"Cache écran", size:11, bold:true, color:[230,0,126], gapAfter:0 });
-        } else if(block.musicTitle){
-          lines.push({ text: (block.musicArtist||"").toUpperCase() || "ARTISTE INCONNU", size:20, bold:true, color:[24,26,32], gapAfter:4 });
-          doc.setFont(undefined,"normal"); doc.setFontSize(12);
-          const wrapped = doc.splitTextToSize(toTitleCase(block.musicTitle), availableTextWidth);
-          wrapped.forEach((l,i)=> lines.push({ text:l, size:12, bold:false, italic:false, color:[120,124,136], gapAfter: i===wrapped.length-1 ? 0 : 2 }));
+          // Cas Cache Écran : même code couleur fuchsia que les blocs Écran Pub -> texte blanc.
+          lines.push({ text:"ÉCRAN LOCAL", size:15, bold:true, color:[255,255,255], gapAfter:4 });
+          lines.push({ text:"CACHE ÉCRAN", size:11, bold:true, color:[255,255,255], gapAfter:0 });
+        } else if(block.musicArtist || block.musicTitle){
+          lines.push({ text: (block.musicArtist||"").toUpperCase() || "ARTISTE INCONNU", size:15, bold:true, color:[24,26,32], gapAfter:0 });
         } else {
-          lines.push({ text: block.name||"Musique", size:17, bold:false, italic:true, color:[170,170,178], gapAfter:0 });
+          lines.push({ text: (block.name||"Musique").toUpperCase(), size:15, bold:false, italic:true, color:[170,170,178], gapAfter:0 });
+        }
+      } else if(block.type === "talk"){
+        // Contenu Talk : toujours en minuscules avec chaque première lettre de mot en majuscule, taille 18.
+        const talkText = toTitleCase(block.name || types[block.type]?.label || "");
+        lines.push({ text: talkText, size:18, bold:true, color:[24,26,32], gapAfter: block.notes ? 6 : 0 });
+        if(block.notes){
+          doc.setFont(undefined,"normal"); doc.setFontSize(12);
+          const wrapped = doc.splitTextToSize(toTitleCase(block.notes), availableTextWidth);
+          wrapped.forEach((l,i)=> lines.push({ text:l, size:12, bold:false, color:[95,99,112], gapAfter: i===wrapped.length-1?0:2 }));
         }
       } else {
-        lines.push({ text: block.name || types[block.type]?.label || "", size:20, bold:true, color:[24,26,32], gapAfter: block.notes ? 6 : 0 });
+        // Flash Info : fond noir -> texte blanc. Écran Pub : fond fuchsia -> texte blanc. Autres : inchangé.
+        const isFlash = block.type === "flash";
+        const isPub = block.type === "pub";
+        const titleColor = (isFlash || isPub) ? [255,255,255] : [24,26,32];
+        const noteColor = (isFlash || isPub) ? [235,225,235] : [95,99,112];
+        lines.push({ text: block.name || types[block.type]?.label || "", size:18, bold:true, color:titleColor, gapAfter: block.notes ? 6 : 0 });
         if(block.notes){
           doc.setFont(undefined,"normal"); doc.setFontSize(12);
           const wrapped = doc.splitTextToSize(block.notes, availableTextWidth);
-          wrapped.forEach((l,i)=> lines.push({ text:l, size:12, bold:false, color:[95,99,112], gapAfter: i===wrapped.length-1?0:2 }));
+          wrapped.forEach((l,i)=> lines.push({ text:l, size:12, bold:false, color:noteColor, gapAfter: i===wrapped.length-1?0:2 }));
         }
       }
       return lines;
@@ -2322,7 +2397,7 @@
             ? CONTENT_PAD_Y*2*scale + lines.reduce((s,l)=> s + (l.size + 2.5*scale) + l.gapAfter, 0)
             : p.contentH;
           body.push([ "", "", fmtMMSS(p.block.duration) ]);
-          rowMeta.push({ kind:"block", blockType:p.block.type, color:p.t.color, emoji:p.t.emoji||"🔖", startLabel:p.startLabel, lines, contentH, scale });
+          rowMeta.push({ kind:"block", blockType:p.block.type, cacheEcran: !!p.block.cacheEcran, color:p.t.color, emoji:p.t.emoji||"🔖", startLabel:p.startLabel, lines, contentH, scale });
         });
       }
 
@@ -2349,10 +2424,10 @@
             return;
           }
           data.cell.styles.minCellHeight = meta.contentH;
-          data.cell.styles.fillColor = PASTEL_BY_TYPE[meta.blockType] || [255,255,255];
+          data.cell.styles.fillColor = meta.cacheEcran ? [230,0,126] : (PASTEL_BY_TYPE[meta.blockType] || [255,255,255]);
           if(data.column.index===2){
             data.cell.styles.fontSize = 9.5;
-            data.cell.styles.textColor = [150,150,158];
+            data.cell.styles.textColor = (meta.blockType === "flash" || meta.blockType === "pub" || meta.cacheEcran) ? [225,225,230] : [150,150,158];
             data.cell.styles.cellPadding = { top:0, bottom:0, left:6, right:12 };
           }
         },
@@ -2368,12 +2443,19 @@
           doc.rect(margin, data.cell.y, 4, data.cell.height, "F");
 
           if(data.column.index===0){
-            // badge horaire, fuchsia, centré verticalement
+            // badge horaire, fuchsia, centré verticalement. Sur un bloc pub (fond déjà fuchsia), le badge
+            // devient invisible sans contour : on lui ajoute un liseré blanc pour qu'il ressorte.
             const badgeW = HEURE_W - 14, badgeH = 22*s;
             const bx = data.cell.x + (data.cell.width - badgeW)/2;
             const by = data.cell.y + (data.cell.height - badgeH)/2;
             doc.setFillColor(230,0,126);
-            doc.roundedRect(bx, by, badgeW, badgeH, 6*s, 6*s, "F");
+            if(meta.blockType === "pub" || meta.cacheEcran){
+              doc.setDrawColor(255,255,255);
+              doc.setLineWidth(1.2*s);
+              doc.roundedRect(bx, by, badgeW, badgeH, 6*s, 6*s, "FD");
+            } else {
+              doc.roundedRect(bx, by, badgeW, badgeH, 6*s, 6*s, "F");
+            }
             doc.setFont(undefined,"bold"); doc.setFontSize(10.5*s); doc.setTextColor(255,255,255);
             doc.text(meta.startLabel, bx+badgeW/2, by+badgeH/2+3.5*s, { align:"center" });
           }
@@ -2386,14 +2468,12 @@
               doc.addImage(durl, "PNG", data.cell.x + CONTENT_PAD_X*s, iconY, iconSize, iconSize);
             }catch(e){}
             const textStartX = data.cell.x + CONTENT_PAD_X*s + iconSize + ICON_GAP*s;
-            const textWidth = availableTextWidth * s;
-            const textCenterX = textStartX + textWidth/2;
             let ty = data.cell.y + CONTENT_PAD_Y*s + (meta.lines[0] ? meta.lines[0].size*0.8 : 0);
             meta.lines.forEach(l=>{
               doc.setFont(undefined, l.italic ? "italic" : (l.bold ? "bold" : "normal"));
               doc.setFontSize(l.size);
               doc.setTextColor(l.color[0], l.color[1], l.color[2]);
-              doc.text(l.text, textCenterX, ty, { align:"center" });
+              doc.text(l.text, textStartX, ty, { align:"left" });
               ty += (l.size + 2.5*s) + l.gapAfter;
             });
           }

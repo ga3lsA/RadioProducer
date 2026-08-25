@@ -4113,12 +4113,6 @@
     { id:"oddnews", name:"Odd News (satire)", listUrls:[
         "https://oddnews.com/"
       ], lang:"en" },
-    { id:"upiodd", name:"UPI — Odd News", listUrls:[
-        "https://www.upi.com/Odd_News/"
-      ], lang:"en" },
-    { id:"fox9unusual", name:"Fox 9 — Unusual", listUrls:[
-        "https://www.fox9.com/tag/unusual"
-      ], lang:"en" },
     { id:"foxnewsodd", name:"Fox News — Odd News", listUrls:[
         "https://www.foxnews.com/category/odd-news"
       ], lang:"en" },
@@ -4427,6 +4421,35 @@
     sel.appendChild(o);
   }
 
+  const newsRetranslateStatus = {}; // id -> "loading" pendant une retraduction manuelle
+
+  function itemNeedsTranslationRetry(n){
+    // Titre resté identique à l'original alors qu'au moins une des sources actives de la news
+    // n'est pas en français : signe que la traduction a échoué (silencieusement) au moment du fetch.
+    const srcs = getItemSources(n).filter(s=> isNewsSourceEnabled(s.sourceId));
+    if(!srcs.length) return false;
+    const hasNonFrenchSource = srcs.some(s=>{
+      const src = NEWS_SOURCES.find(x=> x.id===s.sourceId);
+      return src && src.lang !== "fr";
+    });
+    return hasNonFrenchSource && n.titleFr === n.titleEn;
+  }
+
+  async function retranslateNews(id){
+    const n = store.news[id];
+    if(!n) return;
+    newsRetranslateStatus[id] = "loading";
+    renderNewsList();
+    try{
+      n.titleFr = await translateToFrench(n.titleEn);
+      persistStore();
+    }catch(e){
+      console.warn("Retraduction impossible", e);
+    }
+    delete newsRetranslateStatus[id];
+    renderNewsList();
+  }
+
   function renderNewsList(){
     const pane = document.getElementById("newsListPane");
     if(!pane) return;
@@ -4451,6 +4474,8 @@
         : `<span class="news-source-badge${s.paywalled?" paywalled":""}">${s.paywalled?"🔒 ":""}${escapeHtml(s.source)}</span>`
       ).join("");
       const hasPaywalled = srcs.some(s=> s.paywalled);
+      const needsRetranslate = itemNeedsTranslationRetry(n);
+      const retranslating = newsRetranslateStatus[n.id] === "loading";
       return `
       <div class="news-card${n.pinned?" pinned":""}">
         <div class="news-title" data-open="${n.id}">${escapeHtml(n.titleFr || n.titleEn)}</div>
@@ -4464,6 +4489,7 @@
           <span></span>
           <span class="news-actions">
             ${hasPaywalled ? `<button class="news-icon-btn" data-search="${n.id}" title="Chercher une version gratuite ailleurs">🔍</button>` : ""}
+            ${needsRetranslate ? `<button class="news-icon-btn" data-retranslate="${n.id}" title="Le titre semble être resté en anglais — retenter la traduction" ${retranslating?"disabled":""}>${retranslating?"⏳":"🔁"}</button>` : ""}
             <button class="news-icon-btn${n.pinned?" active":""}" data-pin="${n.id}" title="${n.pinned?"Désépingler":"Épingler"}">📌</button>
             <button class="news-icon-btn danger" data-del="${n.id}" title="Retirer">🗑</button>
           </span>
@@ -4472,6 +4498,7 @@
     }).join("");
     pane.querySelectorAll("[data-pin]").forEach(el=> el.addEventListener("click", ()=> togglePinNews(el.dataset.pin)));
     pane.querySelectorAll("[data-search]").forEach(el=> el.addEventListener("click", ()=> searchFreeAlternative(el.dataset.search)));
+    pane.querySelectorAll("[data-retranslate]").forEach(el=> el.addEventListener("click", ()=> retranslateNews(el.dataset.retranslate)));
     pane.querySelectorAll("[data-open]").forEach(el=> el.addEventListener("click", ()=>{
       const n = store.news[el.dataset.open];
       const srcs = n ? getItemSources(n) : [];
@@ -4489,10 +4516,31 @@
     document.getElementById("newsSourceFilter").addEventListener("change", renderNewsList);
   }
 
+  // Nettoie les news qui ne référencent plus que des sources retirées de NEWS_SOURCES (ex: UPI Odd News,
+  // Fox 9 — Unusual, retirées le 25/08/2026) : on retire ces sources orphelines de chaque item, et on
+  // supprime l'item entier si plus aucune source valide ne lui reste.
+  function pruneOrphanNewsSources(){
+    const validIds = new Set(NEWS_SOURCES.map(s=> s.id));
+    let changed = false;
+    Object.keys(store.news).forEach(id=>{
+      const n = store.news[id];
+      const sources = getItemSources(n).filter(s=> validIds.has(s.sourceId));
+      if(sources.length === 0){
+        delete store.news[id];
+        changed = true;
+      } else if(sources.length !== getItemSources(n).length){
+        n.sources = sources;
+        changed = true;
+      }
+    });
+    if(changed) persistStore();
+  }
+
   (async function boot(){
     store = await loadStore();
     repairModuleStore();
     migrateLegacyBestOfData();
+    pruneOrphanNewsSources();
     init();
     document.getElementById("nameInput").value = allTypes()[activeType].label;
     bindBestOfEvents();

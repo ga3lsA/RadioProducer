@@ -4197,18 +4197,79 @@
     return await res.text();
   }
 
+  function sleep(ms){ return new Promise(r=> setTimeout(r, ms)); }
+
+  async function translateViaGoogle(text){
+    const res = await fetch("https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=fr&dt=t&q=" + encodeURIComponent(text));
+    if(!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+    const out = data[0].map(seg=> seg[0]).join("");
+    if(!out) throw new Error("Réponse Google Translate vide");
+    return out;
+  }
+
+  async function translateViaMyMemory(text){
+    const res = await fetch("https://api.mymemory.translated.net/get?q=" + encodeURIComponent(text) + "&langpair=en|fr");
+    if(!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+    const out = data && data.responseData && data.responseData.translatedText;
+    if(!out || /mymemory warning/i.test(out)) throw new Error("Réponse MyMemory invalide ou quota dépassé");
+    return out;
+  }
+
   async function translateToFrench(text){
     if(!text) return "";
     const chunk = text.slice(0, 480);
-    try{
-      const res = await fetch("https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=fr&dt=t&q=" + encodeURIComponent(chunk));
-      if(!res.ok) throw new Error("HTTP " + res.status);
-      const data = await res.json();
-      return data[0].map(seg=> seg[0]).join("");
-    }catch(e){
-      console.warn("Traduction indisponible, texte original conservé.", e);
-      return text; // repli : on garde le texte original plutôt que de bloquer
+    // Toute traduction doit systématiquement aboutir : plusieurs tentatives sur le service principal
+    // (la plupart des échecs sont transitoires — réseau, limite de débit ponctuelle), puis bascule sur
+    // un second service indépendant si le premier reste indisponible. On ne renvoie le texte original
+    // qu'en tout dernier recours, si les deux services ont échoué à chaque tentative.
+    for(let attempt=0; attempt<3; attempt++){
+      try{ return await translateViaGoogle(chunk); }
+      catch(e){ if(attempt<2) await sleep(400 * (attempt+1)); }
     }
+    try{ return await translateViaMyMemory(chunk); }
+    catch(e){
+      console.warn("Traduction indisponible pour le moment (les deux services ont échoué) ; nouvelle tentative automatique plus tard.", e);
+      return text;
+    }
+  }
+
+  // Balayage automatique en arrière-plan : rattrape silencieusement tout titre resté non traduit
+  // (échec transitoire lors du premier chargement), sans aucun bouton ni action de l'utilisateur.
+  // Déclenché au démarrage, à l'ouverture de l'onglet News, et après chaque actualisation de source.
+  let translationSweepRunning = false;
+  async function autoRetryTranslations(){
+    if(translationSweepRunning) return;
+    const pending = Object.values(store.news).filter(itemNeedsTranslation);
+    if(!pending.length) return;
+    translationSweepRunning = true;
+    let changed = false;
+    for(const n of pending){
+      const translated = await translateToFrench(n.titleEn);
+      if(translated && translated !== n.titleEn){
+        n.titleFr = translated;
+        changed = true;
+      }
+      await sleep(150); // on espace les appels pour rester correct vis-à-vis des services gratuits utilisés
+    }
+    translationSweepRunning = false;
+    if(changed){
+      persistStore();
+      renderNewsList();
+    }
+  }
+
+  function itemNeedsTranslation(n){
+    // Titre resté identique à l'original alors qu'au moins une des sources actives de la news
+    // n'est pas en français : signe que la traduction a échoué (silencieusement) au moment du fetch.
+    const srcs = getItemSources(n).filter(s=> isNewsSourceEnabled(s.sourceId));
+    if(!srcs.length) return false;
+    const hasNonFrenchSource = srcs.some(s=>{
+      const src = NEWS_SOURCES.find(x=> x.id===s.sourceId);
+      return src && src.lang !== "fr";
+    });
+    return hasNonFrenchSource && n.titleFr === n.titleEn;
   }
 
   // Repère "Titre\n[texte lien...](url)" et paragraphes courts dans le markdown renvoyé par le lecteur,
@@ -4331,6 +4392,7 @@
     }
     renderNewsSourceList();
     renderNewsList();
+    autoRetryTranslations(); // rattrape en tâche de fond les titres restés non traduits, sans bloquer l'affichage
   }
 
   async function refreshAllNews(){
@@ -4421,35 +4483,6 @@
     sel.appendChild(o);
   }
 
-  const newsRetranslateStatus = {}; // id -> "loading" pendant une retraduction manuelle
-
-  function itemNeedsTranslationRetry(n){
-    // Titre resté identique à l'original alors qu'au moins une des sources actives de la news
-    // n'est pas en français : signe que la traduction a échoué (silencieusement) au moment du fetch.
-    const srcs = getItemSources(n).filter(s=> isNewsSourceEnabled(s.sourceId));
-    if(!srcs.length) return false;
-    const hasNonFrenchSource = srcs.some(s=>{
-      const src = NEWS_SOURCES.find(x=> x.id===s.sourceId);
-      return src && src.lang !== "fr";
-    });
-    return hasNonFrenchSource && n.titleFr === n.titleEn;
-  }
-
-  async function retranslateNews(id){
-    const n = store.news[id];
-    if(!n) return;
-    newsRetranslateStatus[id] = "loading";
-    renderNewsList();
-    try{
-      n.titleFr = await translateToFrench(n.titleEn);
-      persistStore();
-    }catch(e){
-      console.warn("Retraduction impossible", e);
-    }
-    delete newsRetranslateStatus[id];
-    renderNewsList();
-  }
-
   function renderNewsList(){
     const pane = document.getElementById("newsListPane");
     if(!pane) return;
@@ -4474,8 +4507,6 @@
         : `<span class="news-source-badge${s.paywalled?" paywalled":""}">${s.paywalled?"🔒 ":""}${escapeHtml(s.source)}</span>`
       ).join("");
       const hasPaywalled = srcs.some(s=> s.paywalled);
-      const needsRetranslate = itemNeedsTranslationRetry(n);
-      const retranslating = newsRetranslateStatus[n.id] === "loading";
       return `
       <div class="news-card${n.pinned?" pinned":""}">
         <div class="news-title" data-open="${n.id}">${escapeHtml(n.titleFr || n.titleEn)}</div>
@@ -4489,7 +4520,6 @@
           <span></span>
           <span class="news-actions">
             ${hasPaywalled ? `<button class="news-icon-btn" data-search="${n.id}" title="Chercher une version gratuite ailleurs">🔍</button>` : ""}
-            ${needsRetranslate ? `<button class="news-icon-btn" data-retranslate="${n.id}" title="Le titre semble être resté en anglais — retenter la traduction" ${retranslating?"disabled":""}>${retranslating?"⏳":"🔁"}</button>` : ""}
             <button class="news-icon-btn${n.pinned?" active":""}" data-pin="${n.id}" title="${n.pinned?"Désépingler":"Épingler"}">📌</button>
             <button class="news-icon-btn danger" data-del="${n.id}" title="Retirer">🗑</button>
           </span>
@@ -4498,7 +4528,6 @@
     }).join("");
     pane.querySelectorAll("[data-pin]").forEach(el=> el.addEventListener("click", ()=> togglePinNews(el.dataset.pin)));
     pane.querySelectorAll("[data-search]").forEach(el=> el.addEventListener("click", ()=> searchFreeAlternative(el.dataset.search)));
-    pane.querySelectorAll("[data-retranslate]").forEach(el=> el.addEventListener("click", ()=> retranslateNews(el.dataset.retranslate)));
     pane.querySelectorAll("[data-open]").forEach(el=> el.addEventListener("click", ()=>{
       const n = store.news[el.dataset.open];
       const srcs = n ? getItemSources(n) : [];
@@ -4509,7 +4538,10 @@
   }
 
   function bindNewsEvents(){
-    document.getElementById("navNews").addEventListener("click", ()=> switchView("news"));
+    document.getElementById("navNews").addEventListener("click", ()=>{
+      switchView("news");
+      autoRetryTranslations(); // au cas où cet appareil n'a pas ouvert l'onglet depuis un moment
+    });
     document.getElementById("btnRefreshAllNews").addEventListener("click", refreshAllNews);
     document.getElementById("btnClearAllNews").addEventListener("click", clearAllNews);
     document.getElementById("newsSearch").addEventListener("input", renderNewsList);
@@ -4545,6 +4577,7 @@
     document.getElementById("nameInput").value = allTypes()[activeType].label;
     bindBestOfEvents();
     bindNewsEvents();
+    autoRetryTranslations(); // balayage silencieux au démarrage, ne bloque pas l'affichage initial
   })();
 })();
 </script>

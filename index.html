@@ -225,9 +225,12 @@
   /* ===== News ===== */
   .news-source-row{display:flex; align-items:center; gap:8px; padding:8px 0; border-bottom:1px solid var(--line);}
   .news-source-row:last-child{border-bottom:none;}
+  .news-source-row.disabled .name{color:var(--muted); text-decoration:line-through;}
   .news-source-row .name{flex:1; font-size:12.5px; font-weight:600; color:var(--text);}
   .news-source-row .status{font-size:10px; color:var(--muted);}
   .news-source-row button{flex:none;}
+  .news-source-toggle{flex:none; display:flex; align-items:center;}
+  .news-source-toggle input{width:16px; height:16px; cursor:pointer; accent-color:var(--amber);}
   #newsListPane{display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; align-items:start;}
   .news-card{
     background:#ffffff; border:1px solid #e2e4ec; border-radius:10px; padding:11px 13px;
@@ -1006,6 +1009,7 @@
     if(!s.bestOf) s.bestOf = {};
     if(!s.emissions) s.emissions = {};
     if(!s.news) s.news = {};
+    if(!s.newsSourcesDisabled) s.newsSourcesDisabled = {}; // { sourceId: true } pour les sources désactivées par l'utilisateur
     return s;
   }
   let _persistChain = Promise.resolve();
@@ -4103,6 +4107,27 @@
         "https://www.odditycentral.com/category/news",
         "https://www.odditycentral.com/category/wtf"
       ], lang:"en" },
+    { id:"weirdfeed", name:"WeirdFeed", listUrls:[
+        "https://www.weirdfeed.com/"
+      ], lang:"en" },
+    { id:"oddnews", name:"Odd News (satire)", listUrls:[
+        "https://oddnews.com/"
+      ], lang:"en" },
+    { id:"upiodd", name:"UPI — Odd News", listUrls:[
+        "https://www.upi.com/Odd_News/"
+      ], lang:"en" },
+    { id:"fox9unusual", name:"Fox 9 — Unusual", listUrls:[
+        "https://www.fox9.com/tag/unusual"
+      ], lang:"en" },
+    { id:"foxnewsodd", name:"Fox News — Odd News", listUrls:[
+        "https://www.foxnews.com/category/odd-news"
+      ], lang:"en" },
+    { id:"uniladworld", name:"UNILAD — World News", listUrls:[
+        "https://www.unilad.com/news/world-news"
+      ], lang:"en" },
+    { id:"soranews24weird", name:"SoraNews24 — Weird", listUrls:[
+        "https://soranews24.com/tag/weird/"
+      ], lang:"en" },
     { id:"orangeinsolite", name:"Orange Actu — Insolite", listUrls:[
         "https://actu.orange.fr/societe/insolite/"
       ], lang:"fr", truncateAt:"Afficher plus" },
@@ -4253,6 +4278,7 @@
   async function refreshNewsSource(sourceId){
     const src = NEWS_SOURCES.find(s=> s.id===sourceId);
     if(!src) return;
+    if(!isNewsSourceEnabled(sourceId)) return; // source désactivée : on ne charge rien
     newsSourceStatus[sourceId] = { state:"loading", message:"Récupération en cours…" };
     renderNewsSourceList();
     try{
@@ -4315,6 +4341,7 @@
 
   async function refreshAllNews(){
     for(const src of NEWS_SOURCES){
+      if(!isNewsSourceEnabled(src.id)) continue; // on saute les sources désactivées
       await refreshNewsSource(src.id);
     }
   }
@@ -4353,21 +4380,39 @@
     alert("Liste vidée.");
   }
 
+  function isNewsSourceEnabled(sourceId){
+    return !store.newsSourcesDisabled[sourceId];
+  }
+  function toggleNewsSourceEnabled(sourceId, enabled){
+    if(enabled) delete store.newsSourcesDisabled[sourceId];
+    else store.newsSourcesDisabled[sourceId] = true;
+    persistStore();
+    renderNewsSourceList();
+    renderNewsList(); // masque/affiche immédiatement les news concernées, sans attendre une actualisation
+  }
+
   function renderNewsSourceList(){
     const wrap = document.getElementById("newsSourceList");
     if(!wrap) return;
     wrap.innerHTML = NEWS_SOURCES.map(src=>{
       const st = newsSourceStatus[src.id] || { state:"idle", message:"Jamais actualisée" };
-      const color = st.state==="error" ? "var(--danger)" : st.state==="ok" ? "#39c98a" : "var(--muted)";
+      const enabled = isNewsSourceEnabled(src.id);
+      const color = !enabled ? "var(--muted)" : st.state==="error" ? "var(--danger)" : st.state==="ok" ? "#39c98a" : "var(--muted)";
       return `
-        <div class="news-source-row">
+        <div class="news-source-row${enabled?"":" disabled"}">
+          <label class="news-source-toggle" title="${enabled?"Désactiver cette source":"Activer cette source"}">
+            <input type="checkbox" data-toggle-src="${src.id}" ${enabled?"checked":""}>
+          </label>
           <span class="name">${escapeHtml(src.name)}</span>
-          <span class="status" style="color:${color};">${st.state==="loading"?"⏳ ":""}${escapeHtml(st.message)}</span>
-          <button class="small ghost" data-src="${src.id}">🔄</button>
+          <span class="status" style="color:${color};">${!enabled ? "Désactivée — aucune news chargée ni affichée" : (st.state==="loading"?"⏳ ":"") + escapeHtml(st.message)}</span>
+          <button class="small ghost" data-src="${src.id}" ${enabled?"":"disabled"}>🔄</button>
         </div>`;
     }).join("");
     wrap.querySelectorAll("button[data-src]").forEach(btn=>
       btn.addEventListener("click", ()=> refreshNewsSource(btn.dataset.src))
+    );
+    wrap.querySelectorAll("input[data-toggle-src]").forEach(cb=>
+      cb.addEventListener("change", ()=> toggleNewsSourceEnabled(cb.dataset.toggleSrc, cb.checked))
     );
   }
 
@@ -4390,6 +4435,9 @@
     let items = Object.values(store.news);
     if(q) items = items.filter(n=> n.titleFr.toLowerCase().includes(q) || n.tags.some(t=>t.toLowerCase().includes(q)));
     if(sourceFilter) items = items.filter(n=> getItemSources(n).some(s=> s.source === sourceFilter));
+    // Une news dont toutes les sources ont été désactivées disparaît complètement de la liste ;
+    // si au moins une source reste active, on n'affiche que les badges des sources actives.
+    items = items.filter(n=> getItemSources(n).some(s=> isNewsSourceEnabled(s.sourceId)));
     items.sort((a,b)=> (b.pinned?1:0) - (a.pinned?1:0) || b.fetchedAt.localeCompare(a.fetchedAt));
 
     if(!items.length){
@@ -4397,7 +4445,7 @@
       return;
     }
     pane.innerHTML = items.map(n=>{
-      const srcs = getItemSources(n);
+      const srcs = getItemSources(n).filter(s=> isNewsSourceEnabled(s.sourceId));
       const badgesHtml = srcs.map(s=> s.url
         ? `<a class="news-source-badge${s.paywalled?" paywalled":""}" href="${escapeHtml(s.url)}" target="_blank" rel="noopener" title="${s.paywalled?"Article payant / réservé aux abonnés":"Source"}">${s.paywalled?"🔒 ":""}${escapeHtml(s.source)}</a>`
         : `<span class="news-source-badge${s.paywalled?" paywalled":""}">${s.paywalled?"🔒 ":""}${escapeHtml(s.source)}</span>`

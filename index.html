@@ -4298,14 +4298,49 @@
 
   const PAYWALL_MARKERS = /(article r[ée]serv[ée] aux abonn[ée]s?|r[ée]serv[ée] aux abonn[ée]s?|contenu r[ée]serv[ée] aux abonn[ée]s?|article abonn[ée]s?|exclusif abonn[ée]s?)/i;
 
+  // Convertit une mention de date relative ("23m ago", "10 hours ago", "Yesterday"...) en date absolue
+  // ISO, par rapport à un instant de référence (celui du fetch). Volontairement tolérant : les sites
+  // n'utilisent pas tous le même vocabulaire, et on préfère rater une date que se planter dessus.
+  function parseRelativeDateToISO(text, refDate){
+    const ref = refDate ? new Date(refDate) : new Date();
+    const t = " " + String(text||"").toLowerCase() + " ";
+    let m;
+    if(/\byesterday\b/.test(t)) return new Date(ref.getTime() - 24*3600*1000).toISOString();
+    if(/\btoday\b/.test(t)) return ref.toISOString();
+    if((m = t.match(/(\d+)\s*(?:minute|min|m)s?\s+ago/))) return new Date(ref.getTime() - parseInt(m[1],10)*60*1000).toISOString();
+    if((m = t.match(/(\d+)\s*(?:hour|hr|h)s?\s+ago/))) return new Date(ref.getTime() - parseInt(m[1],10)*3600*1000).toISOString();
+    if((m = t.match(/(\d+)\s*(?:day|d)s?\s+ago/))) return new Date(ref.getTime() - parseInt(m[1],10)*24*3600*1000).toISOString();
+    if((m = t.match(/(\d+)\s*(?:week|wk|w)s?\s+ago/))) return new Date(ref.getTime() - parseInt(m[1],10)*7*24*3600*1000).toISOString();
+    if((m = t.match(/(\d+)\s*(?:month|mo)s?\s+ago/))) return new Date(ref.getTime() - parseInt(m[1],10)*30*24*3600*1000).toISOString();
+    if((m = t.match(/(\d+)\s*(?:year|yr|y)s?\s+ago/))) return new Date(ref.getTime() - parseInt(m[1],10)*365*24*3600*1000).toISOString();
+    return null;
+  }
+
+  // Certains sites (ex: WeirdFeed) préfixent le titre lui-même dans le lien source : "23m ago:Titre...".
+  // On détecte et retire ce préfixe pour la date ET pour nettoyer le titre affiché.
+  const TITLE_DATE_PREFIX_RE = /^\s*((?:\d+\s*(?:minute|min|m|hour|hr|h|day|d|week|wk|w|month|mo|year|yr|y)s?\s*ago)|yesterday|today)\s*:\s*/i;
+  function stripAndParseTitleDatePrefix(title, refDate){
+    const m = title.match(TITLE_DATE_PREFIX_RE);
+    if(!m) return { title, publishedAt:null };
+    const publishedAt = parseRelativeDateToISO(m[1], refDate);
+    const cleaned = title.slice(m[0].length).trim();
+    return { title: cleaned || title, publishedAt };
+  }
+
   function parseNewsListingMarkdown(md, baseHost){
     const items = [];
     md = md.replace(/!\[[^\]]*\]\([^)]*\)/g, ""); // retire les images (y compris imbriquées dans un lien), qui faussent sinon la capture du vrai titre
     const linkRe = /\[([^\]]{8,140})\]\((https?:\/\/[^\s)]+)\)/g;
     const seen = new Set();
+    const refDate = new Date(); // instant de référence pour convertir les dates relatives en dates absolues
     let m;
     while((m = linkRe.exec(md)) !== null){
       let title = m[1].replace(/\s+/g," ").trim();
+      // Repère et retire un éventuel préfixe de date relative collé au titre ("23m ago:...") avant les
+      // autres nettoyages, pour ne pas fausser les filtres de longueur/nombre de mots qui suivent.
+      const stripped = stripAndParseTitleDatePrefix(title, refDate);
+      title = stripped.title;
+      let publishedAt = stripped.publishedAt;
       title = title.replace(/\s*\d[\d.,k]*:?\s*$/i, "").trim(); // retire les compteurs de vues/commentaires collés en fin de titre (ex: certains sites suisses/allemands/actu.fr)
       const url = m[2];
       if(!url.includes(baseHost)) continue;
@@ -4324,7 +4359,14 @@
         paywalled = true;
         title = title.replace(PAYWALL_MARKERS, "").replace(/\s{2,}/g," ").trim();
       }
-      items.push({ title, url, excerpt:"", paywalled });
+      if(!publishedAt){
+        // Repli : certains sites affichent la date à côté du titre plutôt que dedans (ex: "Society 10 hours
+        // ago" juste avant un "### [Titre](url)" dupliqué). On cherche dans une petite fenêtre de texte
+        // autour du lien plutôt que de se limiter au titre lui-même.
+        const windowText = md.slice(Math.max(0, m.index-100), m.index) + " " + md.slice(m.index+m[0].length, m.index+m[0].length+60);
+        publishedAt = parseRelativeDateToISO(windowText, refDate);
+      }
+      items.push({ title, url, excerpt:"", paywalled, publishedAt });
       if(items.length >= 20) break;
     }
     return items;
@@ -4372,6 +4414,7 @@
           const sources = getItemSources(existing);
           if(sources.some(s=> s.sourceId === src.id)){ already++; continue; }
           existing.sources = sources.concat([{ source: src.name, sourceId: src.id, url: it.url, paywalled: !!it.paywalled }]);
+          if(!existing.publishedAt && it.publishedAt) existing.publishedAt = it.publishedAt; // complète si une autre source donne une date détectée
           persistStore();
           already++; // même histoire déjà connue, juste une source de plus ajoutée
           continue;
@@ -4380,7 +4423,8 @@
         store.news[id] = {
           id, titleEn: it.title, titleFr, summaryFr:"", tags:[], pinned:false,
           sources: [{ source: src.name, sourceId: src.id, url: it.url, paywalled: !!it.paywalled }],
-          fetchedAt: new Date().toISOString()
+          fetchedAt: new Date().toISOString(),
+          publishedAt: it.publishedAt || null // date de publication détectée sur le site source, si trouvée ; sinon null (repli sur fetchedAt à l'affichage)
         };
         added++;
       }
@@ -4483,6 +4527,11 @@
     sel.appendChild(o);
   }
 
+  const NEWS_MAX_AGE_DAYS = 21; // 3 semaines
+  function newsEffectiveDate(n){
+    return n.publishedAt || n.fetchedAt; // date de publication détectée sur le site source si connue, sinon date de récupération
+  }
+
   function renderNewsList(){
     const pane = document.getElementById("newsListPane");
     if(!pane) return;
@@ -4494,7 +4543,14 @@
     // Une news dont toutes les sources ont été désactivées disparaît complètement de la liste ;
     // si au moins une source reste active, on n'affiche que les badges des sources actives.
     items = items.filter(n=> getItemSources(n).some(s=> isNewsSourceEnabled(s.sourceId)));
-    items.sort((a,b)=> (b.pinned?1:0) - (a.pinned?1:0) || b.fetchedAt.localeCompare(a.fetchedAt));
+    // Les sites sources n'exposent pas systématiquement une vraie date de publication exploitable :
+    // quand elle est détectée (cf. parseNewsListingMarkdown), on l'utilise ; sinon on retombe sur la
+    // date à laquelle l'outil a découvert la news (fetchedAt) comme approximation.
+    // Une news épinglée reste affichée quel que soit son âge, puisque l'épingler signale l'intention
+    // de la garder sous la main.
+    const cutoff = Date.now() - NEWS_MAX_AGE_DAYS*24*3600*1000;
+    items = items.filter(n=> n.pinned || new Date(newsEffectiveDate(n)).getTime() >= cutoff);
+    items.sort((a,b)=> (b.pinned?1:0) - (a.pinned?1:0) || newsEffectiveDate(b).localeCompare(newsEffectiveDate(a)));
 
     if(!items.length){
       pane.innerHTML = '<div class="news-empty">Aucune actu pour l\'instant. Clique sur "Actualiser toutes les sources", ou ajoute-en une manuellement.</div>';
@@ -4513,7 +4569,7 @@
         ${n.summaryFr ? `<p class="news-summary">${escapeHtml(n.summaryFr)}</p>` : ""}
         <div class="news-meta">
           ${badgesHtml}
-          <span>${new Date(n.fetchedAt).toLocaleDateString("fr-FR")}</span>
+          <span title="${n.publishedAt ? "Date de publication détectée sur le site source" : "Date de récupération par l'outil (date de publication non détectée)"}">${n.publishedAt ? "" : "~ "}${new Date(newsEffectiveDate(n)).toLocaleDateString("fr-FR")}</span>
           ${n.tags.length ? `<span class="news-tags">${n.tags.map(t=>`<span class="news-tag">${escapeHtml(t)}</span>`).join("")}</span>` : ""}
         </div>
         <div class="news-card-footer">

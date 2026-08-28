@@ -236,6 +236,9 @@
     background:#ffffff; border:1px solid #e2e4ec; border-radius:10px; padding:11px 13px;
     display:flex; flex-direction:column; gap:5px;
   }
+  .news-card-body{display:flex; align-items:flex-start; gap:10px;}
+  .news-thumb{width:72px; height:72px; flex:none; object-fit:cover; border-radius:8px; background:var(--panel-2);}
+  .news-card-text{flex:1; min-width:0; display:flex; flex-direction:column; gap:5px;}
   .news-card .news-title{font-size:12.5px; font-weight:700; color:#1c1f28; margin:0; cursor:pointer; line-height:1.32;}
   .news-card .news-title:hover{color:var(--amber);}
   .news-card .news-summary{font-size:10.5px; color:#5a5e6b; line-height:1.4; margin:0; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;}
@@ -4327,14 +4330,33 @@
     return { title: cleaned || title, publishedAt };
   }
 
+  // Filtre les images qui ne sont manifestement pas des photos d'illustration d'article
+  // (logos, icônes, avatars, pixels de tracking, etc.), pour éviter de les afficher comme vignette.
+  function isLikelyContentImage(url){
+    if(/\.svg(\?|$)/i.test(url)) return false;
+    if(/(logo|favicon|icon-|-icon|avatar|sprite|placeholder|spacer|1x1|pixel|badge|share-|-share|social-|-social|button|arrow|gravatar)/i.test(url)) return false;
+    return true;
+  }
+
   function parseNewsListingMarkdown(md, baseHost){
     const items = [];
-    md = md.replace(/!\[[^\]]*\]\([^)]*\)/g, ""); // retire les images (y compris imbriquées dans un lien), qui faussent sinon la capture du vrai titre
+    // 1) Repère d'abord les images (URL + position) dans le texte original, pour pouvoir ensuite associer
+    //    la vignette la plus proche à chaque article détecté.
+    const imgRe = /!\[[^\]]*\]\((https?:\/\/[^\s)]+)\)/g;
+    const images = [];
+    let im;
+    while((im = imgRe.exec(md)) !== null){
+      if(isLikelyContentImage(im[1])) images.push({ index: im.index, url: im[1] });
+    }
+    // 2) Neutralise les images en conservant la longueur du texte (mêmes positions), pour que le texte
+    //    alternatif d'une image ne soit pas pris pour un titre d'article, tout en gardant la
+    //    correspondance de positions avec la liste d'images ci-dessus.
+    const searchMd = md.replace(/!\[[^\]]*\]\([^)]*\)/g, s=> " ".repeat(s.length));
     const linkRe = /\[([^\]]{8,140})\]\((https?:\/\/[^\s)]+)\)/g;
     const seen = new Set();
     const refDate = new Date(); // instant de référence pour convertir les dates relatives en dates absolues
     let m;
-    while((m = linkRe.exec(md)) !== null){
+    while((m = linkRe.exec(searchMd)) !== null){
       let title = m[1].replace(/\s+/g," ").trim();
       // Repère et retire un éventuel préfixe de date relative collé au titre ("23m ago:...") avant les
       // autres nettoyages, pour ne pas fausser les filtres de longueur/nombre de mots qui suivent.
@@ -4363,10 +4385,17 @@
         // Repli : certains sites affichent la date à côté du titre plutôt que dedans (ex: "Society 10 hours
         // ago" juste avant un "### [Titre](url)" dupliqué). On cherche dans une petite fenêtre de texte
         // autour du lien plutôt que de se limiter au titre lui-même.
-        const windowText = md.slice(Math.max(0, m.index-100), m.index) + " " + md.slice(m.index+m[0].length, m.index+m[0].length+60);
+        const windowText = searchMd.slice(Math.max(0, m.index-100), m.index) + " " + searchMd.slice(m.index+m[0].length, m.index+m[0].length+60);
         publishedAt = parseRelativeDateToISO(windowText, refDate);
       }
-      items.push({ title, url, excerpt:"", paywalled, publishedAt });
+      // Vignette : on associe l'image la plus proche du lien, en favorisant une image juste AVANT le lien
+      // (mise en page la plus courante : vignette puis titre), dans une fenêtre d'environ 400 caractères.
+      let imageUrl = null, bestDist = Infinity;
+      for(const img of images){
+        const dist = img.index <= m.index ? (m.index - img.index) : (img.index - (m.index + m[0].length)) * 1.6;
+        if(dist >= 0 && dist < 420 && dist < bestDist){ bestDist = dist; imageUrl = img.url; }
+      }
+      items.push({ title, url, excerpt:"", paywalled, publishedAt, imageUrl });
       if(items.length >= 20) break;
     }
     return items;
@@ -4415,6 +4444,7 @@
           if(sources.some(s=> s.sourceId === src.id)){ already++; continue; }
           existing.sources = sources.concat([{ source: src.name, sourceId: src.id, url: it.url, paywalled: !!it.paywalled }]);
           if(!existing.publishedAt && it.publishedAt) existing.publishedAt = it.publishedAt; // complète si une autre source donne une date détectée
+          if(!existing.imageUrl && it.imageUrl) existing.imageUrl = it.imageUrl; // idem pour la vignette
           persistStore();
           already++; // même histoire déjà connue, juste une source de plus ajoutée
           continue;
@@ -4424,7 +4454,8 @@
           id, titleEn: it.title, titleFr, summaryFr:"", tags:[], pinned:false,
           sources: [{ source: src.name, sourceId: src.id, url: it.url, paywalled: !!it.paywalled }],
           fetchedAt: new Date().toISOString(),
-          publishedAt: it.publishedAt || null // date de publication détectée sur le site source, si trouvée ; sinon null (repli sur fetchedAt à l'affichage)
+          publishedAt: it.publishedAt || null, // date de publication détectée sur le site source, si trouvée ; sinon null (repli sur fetchedAt à l'affichage)
+          imageUrl: it.imageUrl || null // vignette repérée près de l'article sur le site source, si trouvée
         };
         added++;
       }
@@ -4563,10 +4594,18 @@
         : `<span class="news-source-badge${s.paywalled?" paywalled":""}">${s.paywalled?"🔒 ":""}${escapeHtml(s.source)}</span>`
       ).join("");
       const hasPaywalled = srcs.some(s=> s.paywalled);
+      const thumbHtml = n.imageUrl
+        ? `<img class="news-thumb" src="${escapeHtml(n.imageUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove();">`
+        : "";
       return `
       <div class="news-card${n.pinned?" pinned":""}">
-        <div class="news-title" data-open="${n.id}">${escapeHtml(n.titleFr || n.titleEn)}</div>
-        ${n.summaryFr ? `<p class="news-summary">${escapeHtml(n.summaryFr)}</p>` : ""}
+        <div class="news-card-body">
+          ${thumbHtml}
+          <div class="news-card-text">
+            <div class="news-title" data-open="${n.id}">${escapeHtml(n.titleFr || n.titleEn)}</div>
+            ${n.summaryFr ? `<p class="news-summary">${escapeHtml(n.summaryFr)}</p>` : ""}
+          </div>
+        </div>
         <div class="news-meta">
           ${badgesHtml}
           <span title="${n.publishedAt ? "Date de publication détectée sur le site source" : "Date de récupération par l'outil (date de publication non détectée)"}">${n.publishedAt ? "" : "~ "}${new Date(newsEffectiveDate(n)).toLocaleDateString("fr-FR")}</span>

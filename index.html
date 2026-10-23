@@ -2754,6 +2754,9 @@
         }
       }
     }
+    if(rules.initialHourMatchEnabled && hour!=null && mod.initialHour==null){
+      return "heure initiale inconnue (requise par la règle d'heure initiale)";
+    }
     if(rules.initialHourMatchEnabled && mod.initialHour!=null && hour!=null && mod.initialHour !== hour){
       return "doit être rediffusé à son heure initiale (" + String(mod.initialHour).padStart(2,"0") + "h)";
     }
@@ -3452,7 +3455,8 @@
     }
     function sortCandidates(list){
       return list.slice().sort((a,b)=>{
-        if(a.history.length !== b.history.length) return a.history.length - b.history.length;
+        const ra = moduleRediffusionCount(a), rb = moduleRediffusionCount(b);
+        if(ra !== rb) return ra - rb;
         const la = lastHistoryDate(a), lb = lastHistoryDate(b);
         return la < lb ? -1 : la > lb ? 1 : 0;
       });
@@ -3487,7 +3491,14 @@
     return { pickedCount: picked.length, need };
   }
 
+  function confirmInitialHourRuleUsable(){
+    if(boRules().initialHourMatchEnabled && boState && boState.startHour==null){
+      return confirm("La règle « rediffuser à l'heure initiale » est activée, mais ce Best Of n'a pas d'heure de début : les heures sont numérotées (Heure 1, Heure 2…) et la règle ne peut pas s'appliquer.\n\nRenseigne l'« Heure de début » dans la configuration puis clique sur « Créer / Reconfigurer ».\n\nRemplir quand même sans cette règle ?");
+    }
+    return true;
+  }
   function autoFillHour(hIdx){
+    if(!confirmInitialHourRuleUsable()) return;
     const result = autoFillHourCore(hIdx);
     if(result.pickedCount < result.need){
       alert("Seulement " + result.pickedCount + " module(s) disponible(s) sans conflit pour " + boHourLabel(hIdx) + " (" + result.need + " demandé(s)).");
@@ -3497,6 +3508,7 @@
 
   function autoFillAllHours(){
     if(!boState || !boState.hours.length){ alert("Crée d'abord un Best Of."); return; }
+    if(!confirmInitialHourRuleUsable()) return;
     let totalPicked = 0, totalNeed = 0;
     const shortSlots = [];
     boState.hours.forEach((h,i)=>{

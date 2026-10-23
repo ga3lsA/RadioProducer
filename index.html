@@ -286,6 +286,8 @@
   .bo-search-wrap input, .bo-search-wrap select{background:var(--panel-2); border:1px solid var(--line); color:var(--text); border-radius:8px; padding:7px 9px; font-size:12.5px;}
   .bo-filter-row{display:flex; gap:6px; min-width:0;}
   .bo-filter-row select{flex:1; min-width:0; text-overflow:ellipsis; white-space:nowrap; overflow:hidden;}
+  .bo-filter-row input{flex:1; min-width:0;}
+  .bo-search-wrap input.invalid, #boDurMin.invalid, #boDurMax.invalid{border-color:var(--danger);}
   .bo-list{max-height:340px; overflow-y:auto; padding-right:2px;}
   .bo-count-hint{font-size:10.5px; color:var(--muted); margin-bottom:8px;}
 
@@ -673,6 +675,16 @@
             <input type="date" id="boFirstAirTo">
           </div>
         </div>
+        <div class="form-row">
+          <div class="field">
+            <label>Durée min des modules</label>
+            <input type="text" id="boDurMin" placeholder="ex. 2:00" title="Optionnel. Durée minimale incluse : 2:00, 2'30, 2min30, ou un nombre de minutes (2, 3.5)">
+          </div>
+          <div class="field">
+            <label>Durée max des modules</label>
+            <input type="text" id="boDurMax" placeholder="ex. 4:00" title="Optionnel. Durée maximale incluse : 4:00, 4'30, 4min30, ou un nombre de minutes (4, 4.5)">
+          </div>
+        </div>
         <div class="bo-count-hint" id="boFirstAirHint" style="margin:-4px 0 10px;">Filtre sur la date de première diffusion : seuls les modules diffusés pour la première fois dans cette période sont proposés. Laisser vide pour ne pas filtrer.</div>
         <div class="submit-row" style="display:flex; gap:8px;">
           <button class="primary small" id="btnBoCreate" style="flex:1;">Créer / Reconfigurer</button>
@@ -691,29 +703,6 @@
         </div>
         <button class="primary small" id="btnBoPdf" style="width:100%; margin-top:8px;">📄 Export PDF</button>
       </div>
-      <div class="card bo-card-highlight" id="addModuleCard">
-        <h2>Ajouter un module
-          <button class="small ghost bo-list-expand" id="btnToggleAddModuleFullscreen" title="Plein écran">⛶</button>
-        </h2>
-        <div id="addModuleForm">
-          <div class="form-row">
-            <div class="field" style="flex:2;"><label>Titre *</label><input type="text" id="moTitle" placeholder="Titre du module"></div>
-          </div>
-          <div class="form-row">
-            <div class="field"><label>Durée</label><div class="dur-field"><input type="number" id="moDurMin" min="0" max="60" value="2"><span>:</span><input type="number" id="moDurSec" min="0" max="59" value="0"></div></div>
-            <div class="field"><label>ID Zenon</label><input type="text" id="moZenon" placeholder="ex: 498A989"></div>
-          </div>
-          <div class="form-row">
-            <div class="field"><label>Date initiale</label><input type="date" id="moDate"></div>
-            <div class="field"><label>Heure initiale</label><input type="number" id="moHour" min="0" max="23" placeholder="hh"></div>
-          </div>
-          <div class="form-row">
-            <div class="field" style="flex:2;"><label>Tags (séparés par des virgules)</label><input type="text" id="moTags" placeholder="humour, invité, jeu..."></div>
-            <div class="field"><label>Rubrique</label><select id="moRubrique"><option value="">— Auto —</option></select></div>
-          </div>
-          <div class="submit-row"><button class="primary small" id="btnAddModule">+ Ajouter le module</button></div>
-        </div>
-      </div>
       <div class="card" id="moduleDbCard">
         <h2>Base de modules <span id="moduleDbCount" style="font-weight:400; color:var(--muted); font-size:10.5px;"></span>
           <button class="small ghost bo-list-expand" id="btnToggleModuleFullscreen" title="Plein écran">⛶</button>
@@ -725,9 +714,15 @@
             <select id="moFilterRubrique"><option value="">Rubrique : toutes</option></select>
           </div>
           <div class="bo-filter-row">
+            <input type="text" id="moFilterDurMin" placeholder="Durée min (ex. 2:00)" title="Durée minimale, incluse. Formats : 2:00, 2'30, 2min30, ou un nombre de minutes (2, 3.5)">
+            <input type="text" id="moFilterDurMax" placeholder="Durée max (ex. 3:30)" title="Durée maximale, incluse. Formats : 3:30, 3'30, 3min30, ou un nombre de minutes (3, 3.5)">
+          </div>
+          <div class="bo-filter-row">
             <select id="moSortBy">
               <option value="title">Trier par titre</option>
               <option value="rubrique">Trier par rubrique</option>
+              <option value="durAsc">Trier par durée (croissante)</option>
+              <option value="durDesc">Trier par durée (décroissante)</option>
             </select>
             <select id="moTargetHour"></select>
           </div>
@@ -3075,32 +3070,6 @@
     XLSX.writeFile(wb, "modele_import_modules.xlsx");
   }
 
-  function addModuleManual(){
-    const em = requireBoEmission();
-    if(!em) return;
-    const title = document.getElementById("moTitle").value.trim();
-    if(!title){ alert("Le titre est obligatoire."); return; }
-    const min = parseInt(document.getElementById("moDurMin").value,10)||0;
-    const sec = parseInt(document.getElementById("moDurSec").value,10)||0;
-    const zenonId = document.getElementById("moZenon").value.trim();
-    const initialDate = document.getElementById("moDate").value || null;
-    const hourRaw = document.getElementById("moHour").value;
-    const initialHour = hourRaw===""?null:Math.max(0,Math.min(23,parseInt(hourRaw,10)));
-    const tags = document.getElementById("moTags").value.split(",").map(s=>s.trim()).filter(Boolean);
-    const rubriqueSel = document.getElementById("moRubrique").value;
-    const rubrique = rubriqueSel || matchRubrique(title, allRubriquesFor(em));
-    const id = uid("mod");
-    em.modules[id] = {
-      id, title, duration: min*60+sec, zenonId, initialDate, initialHour, tags, rubrique,
-      history: (initialDate && initialHour!=null) ? [{date:initialDate, hour:initialHour}] : []
-    };
-    persistStore();
-    ["moTitle","moZenon","moDate","moHour","moTags"].forEach(elId=> document.getElementById(elId).value = "");
-    document.getElementById("moDurMin").value = 2; document.getElementById("moDurSec").value = 0;
-    document.getElementById("moRubrique").value = "";
-    renderModuleList();
-  }
-
   function deleteModule(id){
     const em = boEmission();
     if(!em) return false;
@@ -3295,11 +3264,23 @@
     wrap.querySelectorAll(".tagRuleDelete").forEach(el=> el.addEventListener("click", e=> deleteTagRule(e.target.dataset.id)));
   }
 
-  // ---- filtre « date de première diffusion » propre à chaque Best Of ----
+  // ---- filtres propres à chaque Best Of : date de 1re diffusion et durée des modules ----
   function firstAirFilter(){
     const from = boState && boState.firstAirFrom ? boState.firstAirFrom : null;
     const to   = boState && boState.firstAirTo   ? boState.firstAirTo   : null;
     return (from || to) ? { from, to } : null;
+  }
+  function durationFilter(){
+    const min = boState && boState.durMin!=null ? boState.durMin : null;
+    const max = boState && boState.durMax!=null ? boState.durMax : null;
+    return (min!=null || max!=null) ? { min, max } : null;
+  }
+  function fmtDurShort(sec){
+    const m = Math.floor(sec/60), r = sec%60;
+    return m + " min" + (r ? " " + String(r).padStart(2,"0") : "");
+  }
+  function fmtDurInput(sec){
+    return sec==null ? "" : Math.floor(sec/60) + ":" + String(sec%60).padStart(2,"0");
   }
   function firstAirFilterIssue(m){
     const f = firstAirFilter();
@@ -3308,6 +3289,29 @@
     if(f.from && m.initialDate < f.from) return "1re diffusion le " + formatDateFr(m.initialDate) + ", avant le " + formatDateFr(f.from);
     if(f.to && m.initialDate > f.to) return "1re diffusion le " + formatDateFr(m.initialDate) + ", après le " + formatDateFr(f.to);
     return null;
+  }
+  function durationFilterIssue(m){
+    const f = durationFilter();
+    if(!f) return null;
+    const d = m.duration || 0;
+    if(!d) return "durée inconnue (filtre de durée actif)";
+    if(f.min!=null && d < f.min) return "durée " + fmtMMSS(d) + ", sous le minimum de " + fmtDurShort(f.min);
+    if(f.max!=null && d > f.max) return "durée " + fmtMMSS(d) + ", au-dessus du maximum de " + fmtDurShort(f.max);
+    return null;
+  }
+  // motif d'exclusion par les filtres du Best Of (null si le module est retenu)
+  function boFilterIssue(m){
+    return firstAirFilterIssue(m) || durationFilterIssue(m);
+  }
+  function boFiltersActive(){
+    return !!(firstAirFilter() || durationFilter());
+  }
+  // lit un champ durée de la configuration : {ok, seconds} ; champ en rouge si illisible
+  function readBoDurationField(id){
+    const el = document.getElementById(id);
+    const r = parseDurationFilter(el.value);
+    el.classList.toggle("invalid", !!r.invalid);
+    return r.invalid ? { ok:false } : { ok:true, seconds: r.seconds!=null ? r.seconds : null };
   }
   function onFirstAirFilterChange(){
     let from = document.getElementById("boFirstAirFrom").value || null;
@@ -3324,25 +3328,49 @@
     }
     renderFirstAirHint();
   }
+  function onDurationFilterChange(){
+    const mn = readBoDurationField("boDurMin"), mx = readBoDurationField("boDurMax");
+    if(!mn.ok || !mx.ok){ renderFirstAirHint(); return; }   // saisie illisible : filtre inchangé
+    if(mn.seconds!=null && mx.seconds!=null && mn.seconds > mx.seconds){
+      alert("La durée minimale est supérieure à la durée maximale.");
+      document.getElementById("boDurMax").value = "";
+      mx.seconds = null;
+    }
+    if(boState){
+      boState.durMin = mn.seconds;
+      boState.durMax = mx.seconds;
+      renderModuleList(); renderBoHours();
+    }
+    renderFirstAirHint();
+  }
   function renderFirstAirHint(){
     const el = document.getElementById("boFirstAirHint");
     if(!el) return;
-    const f = firstAirFilter();
+    const fa = firstAirFilter(), fd = durationFilter();
     const em = boEmission();
+    const invalid = document.querySelector("#boDurMin.invalid, #boDurMax.invalid");
+    const warn = invalid ? ' <span style="color:var(--danger);">Durée illisible : utilise 2:00, 2\'30, 2min30 ou un nombre de minutes.</span>' : '';
     if(!boState){
-      el.textContent = "Filtre sur la date de première diffusion, appliqué à la création du Best Of. Laisser vide pour ne pas filtrer.";
+      el.innerHTML = "Filtres optionnels sur la date de première diffusion et la durée des modules, appliqués à la création du Best Of. Laisser vide pour ne pas filtrer." + warn;
       return;
     }
-    if(!f || !em){
-      el.textContent = "Filtre sur la date de première diffusion : seuls les modules diffusés pour la première fois dans cette période sont proposés. Laisser vide pour ne pas filtrer.";
+    if((!fa && !fd) || !em){
+      el.innerHTML = "Filtres optionnels : seuls les modules dont la première diffusion et la durée entrent dans ces bornes (incluses) sont proposés. Laisser vide pour ne pas filtrer." + warn;
       return;
     }
     const all = Object.values(em.modules);
-    const ok = all.filter(m=> !firstAirFilterIssue(m)).length;
-    const noDate = all.filter(m=> !m.initialDate).length;
-    el.innerHTML = '<b style="color:var(--text);">Filtre actif</b> — ' + ok + ' module(s) sur ' + all.length + ' retenu(s) (1re diffusion ' +
-      (f.from ? 'à partir du ' + formatDateFr(f.from) : '') + (f.from && f.to ? ' ' : '') + (f.to ? "jusqu'au " + formatDateFr(f.to) : '') + ').' +
-      (noDate ? ' ' + noDate + ' module(s) sans date de 1re diffusion sont exclus.' : '');
+    const ok = all.filter(m=> !boFilterIssue(m)).length;
+    const parts = [];
+    if(fa) parts.push("1re diffusion " + (fa.from ? "à partir du " + formatDateFr(fa.from) : "") + (fa.from && fa.to ? " " : "") + (fa.to ? "jusqu'au " + formatDateFr(fa.to) : ""));
+    if(fd) parts.push("durée " + (fd.min!=null && fd.max!=null ? "de " + fmtDurShort(fd.min) + " à " + fmtDurShort(fd.max)
+                                  : fd.min!=null ? "d'au moins " + fmtDurShort(fd.min) : "d'au plus " + fmtDurShort(fd.max)));
+    const noDate = fa ? all.filter(m=> !m.initialDate).length : 0;
+    const noDur = fd ? all.filter(m=> !m.duration).length : 0;
+    const notes = [];
+    if(noDate) notes.push(noDate + " module(s) sans date de 1re diffusion");
+    if(noDur) notes.push(noDur + " module(s) sans durée");
+    el.innerHTML = '<b style="color:var(--text);">Filtres actifs</b> — ' + ok + ' module(s) sur ' + all.length + ' retenu(s) (' + escapeHtml(parts.join(", ")) + ').' +
+      (notes.length ? ' Exclus aussi : ' + notes.join(", ") + '.' : '') + warn;
   }
 
   function moduleRediffusionCount(m){
@@ -3375,8 +3403,8 @@
 
     if(usedElsewhere.has(m.id)) return { eligible:false, reason:"déjà placé dans ce Best Of" };
 
-    const airIssue = firstAirFilterIssue(m);
-    if(airIssue) return { eligible:false, reason: airIssue };
+    const filterIssue = boFilterIssue(m);
+    if(filterIssue) return { eligible:false, reason: filterIssue };
 
     const conflict = clockHour!=null ? moduleConflicts(m, targetDate, clockHour) : null;
     if(conflict) return { eligible:false, reason: conflict };
@@ -3448,7 +3476,7 @@
     function baseCandidates(){
       return Object.values(em.modules).filter(m=>{
         if(usedElsewhere.has(m.id)) return false;
-        if(firstAirFilterIssue(m)) return false;
+        if(boFilterIssue(m)) return false;
         if(clockHour!=null && moduleConflicts(m, targetDate, clockHour)) return false;
         return rubriqueOk(m) && tagRulesOk(m);
       });
@@ -3732,7 +3760,11 @@
     const hours = Array.from({length:totalSlots}, ()=> ({moduleIds:[]}));
     const firstAirFrom = document.getElementById("boFirstAirFrom").value || null;
     const firstAirTo = document.getElementById("boFirstAirTo").value || null;
-    boState = { name, date, numDays, startHour, numHours, modulesPerHour, hours, firstAirFrom, firstAirTo };
+    const dMin = readBoDurationField("boDurMin"), dMax = readBoDurationField("boDurMax");
+    if(!dMin.ok || !dMax.ok){ alert("Une durée de module est illisible. Utilise 2:00, 2'30, 2min30 ou un nombre de minutes."); return; }
+    const durMin = dMin.seconds, durMax = dMax.seconds;
+    if(durMin!=null && durMax!=null && durMin > durMax){ alert("La durée minimale est supérieure à la durée maximale."); return; }
+    boState = { name, date, numDays, startHour, numHours, modulesPerHour, hours, firstAirFrom, firstAirTo, durMin, durMax };
     boMode = { kind:null, name:null };
     renderBoAll();
   }
@@ -3809,6 +3841,10 @@
     document.getElementById("boModulesPerHour").value = boState ? boState.modulesPerHour : 6;
     document.getElementById("boFirstAirFrom").value = boState && boState.firstAirFrom ? boState.firstAirFrom : "";
     document.getElementById("boFirstAirTo").value = boState && boState.firstAirTo ? boState.firstAirTo : "";
+    document.getElementById("boDurMin").value = boState ? fmtDurInput(boState.durMin) : "";
+    document.getElementById("boDurMax").value = boState ? fmtDurInput(boState.durMax) : "";
+    document.getElementById("boDurMin").classList.remove("invalid");
+    document.getElementById("boDurMax").classList.remove("invalid");
     renderFirstAirHint();
     renderModuleTargetHourSelect();
     renderModuleList();
@@ -3857,6 +3893,21 @@
     sel.value = prev;
   }
 
+  // Durée saisie dans les filtres : « 2:00 », « 2'30 », « 2min30 », ou un nombre seul = minutes (2, 3.5)
+  function parseDurationFilter(raw){
+    const s = String(raw||"").trim().replace(",", ".");
+    if(!s) return { empty:true };
+    if(/^\d+(\.\d+)?$/.test(s)) return { seconds: Math.round(parseFloat(s)*60) };
+    const secs = parseFlexibleDuration(s);
+    return secs==null ? { invalid:true } : { seconds: secs };
+  }
+  function readDurationFilter(id){
+    const el = document.getElementById(id);
+    const r = parseDurationFilter(el.value);
+    el.classList.toggle("invalid", !!r.invalid);
+    return r.seconds!=null ? r.seconds : null;
+  }
+
   function renderModuleList(){
     const em = boEmission();
     document.getElementById("moduleDbCount").textContent = em ? "(" + Object.keys(em.modules).length + ")" : "";
@@ -3871,21 +3922,26 @@
     }
     let mods = Object.values(em.modules);
     let hiddenByFirstAir = 0;
-    if(firstAirFilter()){
+    if(boFiltersActive()){
       const before = mods.length;
-      mods = mods.filter(m=> !firstAirFilterIssue(m));
+      mods = mods.filter(m=> !boFilterIssue(m));
       hiddenByFirstAir = before - mods.length;
     }
     if(q) mods = mods.filter(m=> m.title.toLowerCase().includes(q) || m.tags.some(t=>t.toLowerCase().includes(q)));
     if(hourFilter!=="") mods = mods.filter(m=> m.initialHour === parseInt(hourFilter,10));
+    const durMin = readDurationFilter("moFilterDurMin"), durMax = readDurationFilter("moFilterDurMax");
+    if(durMin!=null) mods = mods.filter(m=> (m.duration||0) >= durMin);
+    if(durMax!=null) mods = mods.filter(m=> (m.duration||0) <= durMax);
     if(rubriqueFilter!==""){
       mods = rubriqueFilter==="__none__" ? mods.filter(m=> !m.rubrique) : mods.filter(m=> m.rubrique === rubriqueFilter);
     }
     const targetHourRaw = document.getElementById("moTargetHour").value;
     const targetHourIdx = (targetHourRaw!=null && targetHourRaw!=="") ? parseInt(targetHourRaw,10) : null;
 
-    const secondarySort = sortBy === "rubrique"
-      ? (a,b)=> (a.rubrique||"\uffff").localeCompare(b.rubrique||"\uffff") || a.title.localeCompare(b.title)
+    const secondarySort =
+      sortBy === "rubrique" ? (a,b)=> (a.rubrique||"\uffff").localeCompare(b.rubrique||"\uffff") || a.title.localeCompare(b.title)
+      : sortBy === "durAsc"  ? (a,b)=> (a.duration||0) - (b.duration||0) || a.title.localeCompare(b.title)
+      : sortBy === "durDesc" ? (a,b)=> (b.duration||0) - (a.duration||0) || a.title.localeCompare(b.title)
       : (a,b)=> a.title.localeCompare(b.title);
 
     if(targetHourIdx!=null){
@@ -3909,7 +3965,7 @@
     }
     list.innerHTML = "";
     document.getElementById("moduleListCounter").textContent = mods.length + " module(s) affiché(s) ici" +
-      (hiddenByFirstAir ? " · " + hiddenByFirstAir + " masqué(s) par le filtre de 1re diffusion" : "");
+      (hiddenByFirstAir ? " · " + hiddenByFirstAir + " masqué(s) par les filtres du Best Of" : "");
     if(!mods.length){
       list.innerHTML = '<div class="bo-count-hint" style="text-align:center; padding:14px;">Aucun module ne correspond.</div>';
       return;
@@ -3985,7 +4041,7 @@
             row.innerHTML = `<div class="bo-hour-badge"></div><div class="bo-handle"></div><div class="bo-info-wrap"><div class="bo-sub" style="color:var(--danger);">Module introuvable (supprimé de la base)</div></div><div class="bo-dur"></div><div class="bo-row-actions"><button class="bo-del">×</button></div>`;
           } else {
             const clockHour = boClockHourOf(hIdx);
-            const conflict = firstAirFilterIssue(m) || (clockHour!=null ? moduleConflicts(m, boDateOf(hIdx), clockHour) : null);
+            const conflict = boFilterIssue(m) || (clockHour!=null ? moduleConflicts(m, boDateOf(hIdx), clockHour) : null);
             if(conflict) row.classList.add("conflict");
             row.innerHTML = `
               <div class="bo-hour-badge">${m.initialHour!=null ? String(m.initialHour).padStart(2,"0")+"h init." : "—"}</div>
@@ -4347,7 +4403,6 @@
       boInitialized = true;
       renderModuleFilterHourSelect();
       renderModuleFilterRubriqueSelect();
-      populateRubriqueSelect(document.getElementById("moRubrique"), "", "— Auto —");
       refreshEmissionSelect();
       boState = boEmissionId ? blankBoState() : null;
       renderBoAll();
@@ -4403,6 +4458,8 @@
     document.getElementById("btnBoCreate").addEventListener("click", createOrReconfigureBo);
     document.getElementById("boFirstAirFrom").addEventListener("change", onFirstAirFilterChange);
     document.getElementById("boFirstAirTo").addEventListener("change", onFirstAirFilterChange);
+    document.getElementById("boDurMin").addEventListener("change", onDurationFilterChange);
+    document.getElementById("boDurMax").addEventListener("change", onDurationFilterChange);
     document.getElementById("boSelect").addEventListener("change", e=> loadBo(e.target.value));
     document.getElementById("btnBoSave").addEventListener("click", saveBo);
     document.getElementById("btnBoDelete").addEventListener("click", deleteBo);
@@ -4425,7 +4482,6 @@
       body.style.display = collapsed ? "" : "none";
       e.target.textContent = collapsed ? "Replier" : "Déplier";
     });
-    document.getElementById("btnAddModule").addEventListener("click", addModuleManual);
 
     document.getElementById("btnImportModules").addEventListener("click", ()=> document.getElementById("moduleFileInput").click());
     document.getElementById("btnModuleTemplate").addEventListener("click", downloadModuleTemplate);
@@ -4438,6 +4494,8 @@
     document.getElementById("moFilterHour").addEventListener("change", renderModuleList);
     document.getElementById("moFilterRubrique").addEventListener("change", renderModuleList);
     document.getElementById("moSortBy").addEventListener("change", renderModuleList);
+    document.getElementById("moFilterDurMin").addEventListener("input", renderModuleList);
+    document.getElementById("moFilterDurMax").addEventListener("input", renderModuleList);
     document.getElementById("moTargetHour").addEventListener("change", renderModuleList);
 
     document.getElementById("bestOfHoursPane").addEventListener("dragover", e=> e.preventDefault());
@@ -4479,7 +4537,6 @@
       });
     }
     setupCardFullscreenToggle("moduleDbCard", "btnToggleModuleFullscreen");
-    setupCardFullscreenToggle("addModuleCard", "btnToggleAddModuleFullscreen");
   }
 
   // ============================================================

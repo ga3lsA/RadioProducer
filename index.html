@@ -663,6 +663,17 @@
             <input type="number" id="boModulesPerHour" min="1" max="20" value="6">
           </div>
         </div>
+        <div class="form-row">
+          <div class="field">
+            <label>1re diffusion à partir du</label>
+            <input type="date" id="boFirstAirFrom">
+          </div>
+          <div class="field">
+            <label>Jusqu'au (optionnel)</label>
+            <input type="date" id="boFirstAirTo">
+          </div>
+        </div>
+        <div class="bo-count-hint" id="boFirstAirHint" style="margin:-4px 0 10px;">Filtre sur la date de première diffusion : seuls les modules diffusés pour la première fois dans cette période sont proposés. Laisser vide pour ne pas filtrer.</div>
         <div class="submit-row" style="display:flex; gap:8px;">
           <button class="primary small" id="btnBoCreate" style="flex:1;">Créer / Reconfigurer</button>
         </div>
@@ -3281,6 +3292,56 @@
     wrap.querySelectorAll(".tagRuleDelete").forEach(el=> el.addEventListener("click", e=> deleteTagRule(e.target.dataset.id)));
   }
 
+  // ---- filtre « date de première diffusion » propre à chaque Best Of ----
+  function firstAirFilter(){
+    const from = boState && boState.firstAirFrom ? boState.firstAirFrom : null;
+    const to   = boState && boState.firstAirTo   ? boState.firstAirTo   : null;
+    return (from || to) ? { from, to } : null;
+  }
+  function firstAirFilterIssue(m){
+    const f = firstAirFilter();
+    if(!f) return null;
+    if(!m.initialDate) return "date de 1re diffusion inconnue (filtre actif)";
+    if(f.from && m.initialDate < f.from) return "1re diffusion le " + formatDateFr(m.initialDate) + ", avant le " + formatDateFr(f.from);
+    if(f.to && m.initialDate > f.to) return "1re diffusion le " + formatDateFr(m.initialDate) + ", après le " + formatDateFr(f.to);
+    return null;
+  }
+  function onFirstAirFilterChange(){
+    let from = document.getElementById("boFirstAirFrom").value || null;
+    let to = document.getElementById("boFirstAirTo").value || null;
+    if(from && to && from > to){
+      alert("La date de fin du filtre est antérieure à la date de début.");
+      document.getElementById("boFirstAirTo").value = "";
+      to = null;
+    }
+    if(boState){
+      boState.firstAirFrom = from;
+      boState.firstAirTo = to;
+      renderModuleList(); renderBoHours();
+    }
+    renderFirstAirHint();
+  }
+  function renderFirstAirHint(){
+    const el = document.getElementById("boFirstAirHint");
+    if(!el) return;
+    const f = firstAirFilter();
+    const em = boEmission();
+    if(!boState){
+      el.textContent = "Filtre sur la date de première diffusion, appliqué à la création du Best Of. Laisser vide pour ne pas filtrer.";
+      return;
+    }
+    if(!f || !em){
+      el.textContent = "Filtre sur la date de première diffusion : seuls les modules diffusés pour la première fois dans cette période sont proposés. Laisser vide pour ne pas filtrer.";
+      return;
+    }
+    const all = Object.values(em.modules);
+    const ok = all.filter(m=> !firstAirFilterIssue(m)).length;
+    const noDate = all.filter(m=> !m.initialDate).length;
+    el.innerHTML = '<b style="color:var(--text);">Filtre actif</b> — ' + ok + ' module(s) sur ' + all.length + ' retenu(s) (1re diffusion ' +
+      (f.from ? 'à partir du ' + formatDateFr(f.from) : '') + (f.from && f.to ? ' ' : '') + (f.to ? "jusqu'au " + formatDateFr(f.to) : '') + ').' +
+      (noDate ? ' ' + noDate + ' module(s) sans date de 1re diffusion sont exclus.' : '');
+  }
+
   function moduleRediffusionCount(m){
     return m.history.filter(h=> !(h.date===m.initialDate && h.hour===m.initialHour)).length;
   }
@@ -3310,6 +3371,9 @@
     });
 
     if(usedElsewhere.has(m.id)) return { eligible:false, reason:"déjà placé dans ce Best Of" };
+
+    const airIssue = firstAirFilterIssue(m);
+    if(airIssue) return { eligible:false, reason: airIssue };
 
     const conflict = clockHour!=null ? moduleConflicts(m, targetDate, clockHour) : null;
     if(conflict) return { eligible:false, reason: conflict };
@@ -3381,6 +3445,7 @@
     function baseCandidates(){
       return Object.values(em.modules).filter(m=>{
         if(usedElsewhere.has(m.id)) return false;
+        if(firstAirFilterIssue(m)) return false;
         if(clockHour!=null && moduleConflicts(m, targetDate, clockHour)) return false;
         return rubriqueOk(m) && tagRulesOk(m);
       });
@@ -3653,7 +3718,9 @@
     const modulesPerHour = Math.max(1, Math.min(20, parseInt(document.getElementById("boModulesPerHour").value,10) || 1));
     const totalSlots = numHours * numDays;
     const hours = Array.from({length:totalSlots}, ()=> ({moduleIds:[]}));
-    boState = { name, date, numDays, startHour, numHours, modulesPerHour, hours };
+    const firstAirFrom = document.getElementById("boFirstAirFrom").value || null;
+    const firstAirTo = document.getElementById("boFirstAirTo").value || null;
+    boState = { name, date, numDays, startHour, numHours, modulesPerHour, hours, firstAirFrom, firstAirTo };
     boMode = { kind:null, name:null };
     renderBoAll();
   }
@@ -3728,6 +3795,9 @@
     document.getElementById("boStartHour").value = boState && boState.startHour!=null ? boState.startHour : "";
     document.getElementById("boNumHours").value = boState ? boState.numHours : 4;
     document.getElementById("boModulesPerHour").value = boState ? boState.modulesPerHour : 6;
+    document.getElementById("boFirstAirFrom").value = boState && boState.firstAirFrom ? boState.firstAirFrom : "";
+    document.getElementById("boFirstAirTo").value = boState && boState.firstAirTo ? boState.firstAirTo : "";
+    renderFirstAirHint();
     renderModuleTargetHourSelect();
     renderModuleList();
     renderBoLogoSlots();
@@ -3788,6 +3858,12 @@
       return;
     }
     let mods = Object.values(em.modules);
+    let hiddenByFirstAir = 0;
+    if(firstAirFilter()){
+      const before = mods.length;
+      mods = mods.filter(m=> !firstAirFilterIssue(m));
+      hiddenByFirstAir = before - mods.length;
+    }
     if(q) mods = mods.filter(m=> m.title.toLowerCase().includes(q) || m.tags.some(t=>t.toLowerCase().includes(q)));
     if(hourFilter!=="") mods = mods.filter(m=> m.initialHour === parseInt(hourFilter,10));
     if(rubriqueFilter!==""){
@@ -3820,7 +3896,8 @@
       mods.sort(secondarySort);
     }
     list.innerHTML = "";
-    document.getElementById("moduleListCounter").textContent = mods.length + " module(s) affiché(s) ici";
+    document.getElementById("moduleListCounter").textContent = mods.length + " module(s) affiché(s) ici" +
+      (hiddenByFirstAir ? " · " + hiddenByFirstAir + " masqué(s) par le filtre de 1re diffusion" : "");
     if(!mods.length){
       list.innerHTML = '<div class="bo-count-hint" style="text-align:center; padding:14px;">Aucun module ne correspond.</div>';
       return;
@@ -3896,7 +3973,7 @@
             row.innerHTML = `<div class="bo-hour-badge"></div><div class="bo-handle"></div><div class="bo-info-wrap"><div class="bo-sub" style="color:var(--danger);">Module introuvable (supprimé de la base)</div></div><div class="bo-dur"></div><div class="bo-row-actions"><button class="bo-del">×</button></div>`;
           } else {
             const clockHour = boClockHourOf(hIdx);
-            const conflict = clockHour!=null ? moduleConflicts(m, boDateOf(hIdx), clockHour) : null;
+            const conflict = firstAirFilterIssue(m) || (clockHour!=null ? moduleConflicts(m, boDateOf(hIdx), clockHour) : null);
             if(conflict) row.classList.add("conflict");
             row.innerHTML = `
               <div class="bo-hour-badge">${m.initialHour!=null ? String(m.initialHour).padStart(2,"0")+"h init." : "—"}</div>
@@ -4312,6 +4389,8 @@
     });
 
     document.getElementById("btnBoCreate").addEventListener("click", createOrReconfigureBo);
+    document.getElementById("boFirstAirFrom").addEventListener("change", onFirstAirFilterChange);
+    document.getElementById("boFirstAirTo").addEventListener("change", onFirstAirFilterChange);
     document.getElementById("boSelect").addEventListener("change", e=> loadBo(e.target.value));
     document.getElementById("btnBoSave").addEventListener("click", saveBo);
     document.getElementById("btnBoDelete").addEventListener("click", deleteBo);

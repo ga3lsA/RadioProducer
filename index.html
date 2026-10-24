@@ -221,6 +221,18 @@
   .modal-field label{font-size:12.5px; color:var(--text);}
   .modal-field input{width:140px; text-align:center; background:var(--panel-2); border:1px solid var(--line); color:var(--text); border-radius:8px; padding:7px; font-family:'Space Mono',monospace; font-size:13px;}
   .modal-actions{display:flex; justify-content:flex-end; gap:8px; margin-top:6px;}
+  .sg-list{overflow-y:auto; flex:1; min-height:0; border-top:1px solid var(--line); padding-top:8px;}
+  .sg-group{border:1px solid var(--line); border-radius:10px; padding:8px 10px; margin-bottom:8px; background:var(--panel-2);}
+  .sg-head{display:flex; align-items:center; gap:8px;}
+  .sg-name{flex:1; min-width:0; background:var(--bg); border:1px solid var(--line); color:var(--text); border-radius:7px; padding:6px 8px; font-size:13px; font-weight:600;}
+  .sg-name-static{flex:1; font-size:13px; font-weight:600;}
+  .sg-count{font-size:11.5px; color:var(--muted); white-space:nowrap;}
+  .sg-hint{font-size:11px; color:var(--amber); margin:4px 0 0 24px;}
+  .sg-hint:empty{display:none;}
+  .sg-mods{margin:6px 0 0 24px; max-height:200px; overflow-y:auto;}
+  .sg-mod{display:flex; align-items:center; gap:8px; font-size:12px; padding:2px 0; cursor:pointer;}
+  .sg-mod span:nth-child(2){flex:1; min-width:0;}
+  .sg-mod-meta{color:var(--muted); font-size:11px; white-space:nowrap;}
 
   /* ===== News ===== */
   .news-source-row{display:flex; align-items:center; gap:8px; padding:8px 0; border-bottom:1px solid var(--line);}
@@ -745,7 +757,8 @@
         <h2>Rubriques récurrentes <button class="small ghost" id="btnToggleRubriquesCard" style="padding:3px 9px; font-size:10.5px;">Déplier</button></h2>
         <div id="rubriquesCardBody" style="display:none;">
         <p class="modal-sub" style="margin:0 0 10px;">Associe chaque module à sa rubrique (basé sur le titre), affiche un badge dans les fiches et le conducteur, et empêche la même rubrique de repasser à moins de 2h d'intervalle lors du remplissage automatique.</p>
-        <button class="small" id="btnAutoAssignRubriques" style="width:100%; margin-bottom:10px;">🔗 Associer les rubriques automatiquement</button>
+        <button class="small" id="btnAutoAssignRubriques" style="width:100%; margin-bottom:6px;">🔗 Associer les rubriques automatiquement</button>
+        <button class="small" id="btnSuggestRubriques" style="width:100%; margin-bottom:10px;" title="Regroupe les modules sans rubrique dont le titre se répète et propose de créer les rubriques correspondantes">🔍 Analyser les modules sans rubrique</button>
         <div class="form-row">
           <div class="field" style="flex:2;">
             <label>Nouvelle rubrique</label>
@@ -864,7 +877,7 @@
     // 1. le nom exact de la rubrique figure dans le titre
     for(const r of sorted){
       const normR = normalizeForMatch(r);
-      if(normR && normTitle.includes(normR)) return r;
+      if(normR && (" "+normTitle+" ").includes(" "+normR+" ")) return r;
     }
     // 2. même chose en ignorant le pluriel et les espaces, sur des mots entiers du titre
     //    (« QUESTION D'ENFANTS » = « QUESTIONS D ENFANTS », « JEAN QUETE » = « JEANQUETE »)
@@ -970,6 +983,251 @@
     persistStore();
     renderModuleList(); renderBoHours();
     alert("Association terminée : " + assigned + " module(s) associé(s) à une rubrique, " + already + " déjà renseigné(s), " + unmatched + " sans correspondance trouvée (à compléter manuellement si besoin).");
+  }
+
+  // ---- analyse : suggestions de nouvelles rubriques à partir des modules sans rubrique ----
+  const SUGGEST_LEADING_ARTICLES = new Set(["LE","LA","LES","L","UN","UNE"]);
+  const SUGGEST_TRAILING_CONNECTORS = new Set(["DE","DU","DES","D","LE","LA","LES","L","ET","A","AU","AUX","EN","SUR","POUR","AVEC","PAR","QUI","QUE"]);
+
+  // Découpe un titre en mots alignés sur normalizeForMatch, en gardant leur position dans le titre
+  // d'origine (pour proposer un nom avec les accents et apostrophes : « L'INFO DE », « JT CHANTÉ »).
+  function suggestTokens(title){
+    let core = String(title||"").replace(/[…\.]+\s*$/,"").trim();
+    // retire l'heure et la version finales : « 8H », « 9H V2 », « 7H-02 »
+    core = core.replace(/(?:^|\s)\d{1,2}\s*h(?:\s*00)?(?:\s*[-–_]?\s*v?\s*\d{1,2})?\s*\)?\s*$/i, "").trim();
+    const toks = [];
+    let cur = null;
+    for(let i=0; i<core.length; i++){
+      const n = core[i].toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+      if(/^[A-Z0-9]+$/.test(n)){
+        if(!cur){ cur = { start:i, norm:"" }; toks.push(cur); }
+        cur.norm += n; cur.end = i+1;
+      } else cur = null;
+    }
+    toks.forEach(t=> t.key = looseWord(t.norm));
+    let first = 0;
+    while(first < toks.length-1 && SUGGEST_LEADING_ARTICLES.has(toks[first].norm)) first++;
+    return { core, toks, first };
+  }
+
+  function suggestRubriques(em, minCount){
+    const existing = allRubriquesFor(em);
+    const existingByKey = new Map(existing.map(r=> [looseKey(r), r]));
+    const items = Object.values(em.modules).filter(m=> !m.rubrique).map(m=>{
+      const tk = suggestTokens(m.title);
+      return { m, tk, words: tk.toks.slice(tk.first).map(t=> t.key) };
+    }).filter(it=> it.words.length);
+
+    // arbre des débuts de titre (article initial ignoré, pluriel ignoré)
+    const root = { children:new Map(), items:[] };
+    items.forEach(it=>{
+      let node = root;
+      it.words.forEach(w=>{
+        if(!node.children.has(w)) node.children.set(w, { word:w, children:new Map(), items:[] });
+        node = node.children.get(w);
+        node.items.push(it);
+      });
+    });
+
+    const suggestions = [];
+    const hasSignificant = words => words.some(w=> w.length>=3 && !BO_STOPWORDS.has(w));
+    function visit(node, path){
+      if(node.items.length < minCount) return;
+      // prolonge tant que tous les modules du groupe partagent le mot suivant
+      let n = node, p = path.slice();
+      while(true){
+        const full = [...n.children.values()].find(c=> c.items.length === n.items.length);
+        if(!full) break;
+        n = full; p.push(full.word);
+      }
+      if(!hasSignificant(p)){
+        // préfixe trop pauvre (« ON », « LES ») : on regarde plus loin
+        n.children.forEach(c=> visit(c, p.concat(c.word)));
+        return;
+      }
+      suggestions.push({ path:p, items:n.items.slice() });
+    }
+    root.children.forEach(c=> visit(c, [c.word]));
+
+    return suggestions.map(sg=>{
+      // nom proposé : la forme d'origine la plus fréquente du début de titre, sans connecteur final
+      let len = sg.path.length;
+      while(len>1 && SUGGEST_TRAILING_CONNECTORS.has(sg.path[len-1])) len--;
+      const forms = new Map();
+      sg.items.forEach(it=>{
+        const toks = it.tk.toks;
+        const a = toks[it.tk.first], b = toks[it.tk.first + len - 1];
+        // garde l'article s'il est collé par une apostrophe (« L'INFO ») ou si tout le groupe l'a
+        const form = it.tk.core.slice(a.start, b.end).toUpperCase().replace(/\s+/g," ");
+        const withArt = it.tk.first>0 ? it.tk.core.slice(toks[0].start, b.end).toUpperCase().replace(/\s+/g," ") : form;
+        forms.set(form, (forms.get(form)||0) + 1);
+        if(withArt !== form) forms.set("\u0001"+withArt, (forms.get("\u0001"+withArt)||0) + 1);
+      });
+      const allHaveArticle = sg.items.every(it=> it.tk.first>0);
+      let best = null, bestN = -1;
+      forms.forEach((n, f)=>{
+        const isArt = f.startsWith("\u0001");
+        if(isArt && !allHaveArticle) return;
+        if(!isArt && allHaveArticle) return;
+        if(n > bestN){ best = isArt ? f.slice(1) : f; bestN = n; }
+      });
+      const name = best || sg.path.slice(0,len).join(" ");
+      const existingName = existingByKey.get(looseKey(name)) || null;
+      return { name, existing: existingName, modules: sg.items.map(it=> it.m) };
+    }).sort((a,b)=> b.modules.length - a.modules.length || a.name.localeCompare(b.name));
+  }
+
+  function openRubriqueSuggestions(minCount){
+    const em = requireBoEmission();
+    if(!em) return;
+    minCount = Math.max(2, parseInt(minCount,10) || 4);
+    const root = document.getElementById("modalRoot");
+    const rubList = allRubriquesFor(em);
+    const unassigned = Object.values(em.modules).filter(m=> !m.rubrique);
+
+    // 1. modules qui correspondent déjà à une rubrique existante (titre reconnu)
+    const toExisting = [];
+    unassigned.forEach(m=>{ const r = matchRubrique(m.title, rubList); if(r) toExisting.push({ m, r }); });
+    const matchedIds = new Set(toExisting.map(x=> x.m.id));
+
+    // 2. regroupement des autres par début de titre
+    const tmpEm = { modules:{}, rubriques: em.rubriques };
+    unassigned.forEach(m=>{ if(!matchedIds.has(m.id)) tmpEm.modules[m.id] = m; });
+    const suggestions = suggestRubriques(Object.assign({}, em, tmpEm), minCount);
+    const covered = suggestions.reduce((a,s)=> a + s.modules.length, 0);
+
+    const modRow = (m, gi)=> `<label class="sg-mod"><input type="checkbox" class="sg-mod-cb" data-g="${gi}" data-id="${escapeHtml(m.id)}" checked>
+        <span>${escapeHtml(m.title)}</span><span class="sg-mod-meta">${m.initialDate ? formatDateFr(m.initialDate) : ""}</span></label>`;
+
+    let html = "";
+    if(toExisting.length){
+      html += `<div class="sg-group">
+        <div class="sg-head">
+          <input type="checkbox" class="sg-cb" data-g="x" checked>
+          <div class="sg-name-static">Associer à des rubriques déjà existantes</div>
+          <span class="sg-count" data-g="x">${toExisting.length} module(s)</span>
+          <button class="small ghost sg-toggle" data-g="x">Voir ▾</button>
+        </div>
+        <div class="sg-hint">Leur titre correspond à une rubrique existante, mais ils n'y ont jamais été associés.</div>
+        <div class="sg-mods" data-g="x" style="display:none;">${toExisting.map(x=>
+          `<label class="sg-mod"><input type="checkbox" class="sg-mod-cb" data-g="x" data-id="${escapeHtml(x.m.id)}" checked>
+           <span>${escapeHtml(x.m.title)}</span><span class="sg-mod-meta">→ ${escapeHtml(x.r)}</span></label>`).join("")}</div>
+      </div>`;
+    }
+    suggestions.forEach((s, gi)=>{
+      html += `<div class="sg-group">
+        <div class="sg-head">
+          <input type="checkbox" class="sg-cb" data-g="${gi}" checked>
+          <input type="text" class="sg-name" data-g="${gi}" value="${escapeHtml(s.existing || s.name)}" title="Nom de la rubrique (modifiable)">
+          <span class="sg-count" data-g="${gi}">${s.modules.length} module(s)</span>
+          <button class="small ghost sg-toggle" data-g="${gi}">Voir ▾</button>
+        </div>
+        <div class="sg-hint" data-g="${gi}"></div>
+        <div class="sg-mods" data-g="${gi}" style="display:none;">${s.modules.map(m=> modRow(m, gi)).join("")}</div>
+      </div>`;
+    });
+    if(!html){
+      html = `<p class="modal-sub" style="margin:10px 0;">Aucun groupe d'au moins ${minCount} modules au titre similaire parmi les ${unassigned.length} module(s) sans rubrique.</p>`;
+    }
+
+    root.innerHTML = `
+      <div class="modal-overlay">
+        <div class="modal-card" style="max-width:min(760px,94vw); max-height:90vh; display:flex; flex-direction:column;">
+          <h3>Suggestions de rubriques</h3>
+          <p class="modal-sub" style="margin:0 0 8px;">${unassigned.length} module(s) sans rubrique analysé(s).
+            Les modules dont le titre commence de la même façon sont regroupés et proposés comme nouvelle rubrique.
+            Modifie le nom si besoin, décoche les groupes ou les modules à ignorer.
+            ${unassigned.length ? `<br>${toExisting.length + covered} module(s) concerné(s) par ces propositions, ${unassigned.length - toExisting.length - covered} resteront sans rubrique.` : ""}</p>
+          <div class="modal-field" style="justify-content:flex-start;">
+            <label>Nombre minimum de modules par groupe</label>
+            <input type="number" id="sgMin" min="2" max="50" value="${minCount}" style="width:70px;">
+          </div>
+          <div class="sg-list">${html}</div>
+          <div class="modal-actions" style="margin-top:12px;">
+            <button class="ghost small" id="sgCancel">Fermer</button>
+            <button class="primary small" id="sgApply">Créer et associer</button>
+          </div>
+        </div>
+      </div>`;
+
+    const q = sel => root.querySelectorAll(sel);
+    const existingHint = name=>{
+      const k = looseKey(name);
+      const ex = allRubriquesFor(em).find(r=> looseKey(r) === k);
+      return ex ? "Rubrique existante « " + ex + " » : les modules y seront associés." : "";
+    };
+    function refresh(){
+      let nRub = 0, nMods = 0;
+      const newNames = new Set();
+      const groups = new Set([...q(".sg-cb")].map(cb=> cb.dataset.g));
+      groups.forEach(g=>{
+        const cb = root.querySelector('.sg-cb[data-g="'+g+'"]');
+        const mods = [...q('.sg-mod-cb[data-g="'+g+'"]')].filter(c=> c.checked).length;
+        root.querySelector('.sg-count[data-g="'+g+'"]').textContent = mods + " module(s)";
+        if(g !== "x"){
+          const name = root.querySelector('.sg-name[data-g="'+g+'"]').value.trim();
+          const hint = root.querySelector('.sg-hint[data-g="'+g+'"]');
+          hint.textContent = !name ? "Nom vide : ce groupe sera ignoré." : existingHint(name);
+          if(cb.checked && name && mods){
+            nMods += mods;
+            if(!existingHint(name)) newNames.add(looseKey(name));
+          }
+        } else if(cb.checked) nMods += mods;
+      });
+      nRub = newNames.size;
+      const btn = document.getElementById("sgApply");
+      btn.textContent = "Créer " + nRub + " rubrique(s) et associer " + nMods + " module(s)";
+      btn.disabled = !nMods;
+    }
+    q(".sg-toggle").forEach(b=> b.addEventListener("click", ()=>{
+      const box = root.querySelector('.sg-mods[data-g="'+b.dataset.g+'"]');
+      const open = box.style.display === "none";
+      box.style.display = open ? "block" : "none";
+      b.textContent = open ? "Masquer ▴" : "Voir ▾";
+    }));
+    q(".sg-cb").forEach(cb=> cb.addEventListener("change", ()=>{
+      q('.sg-mod-cb[data-g="'+cb.dataset.g+'"]').forEach(c=> c.checked = cb.checked);
+      refresh();
+    }));
+    q(".sg-mod-cb").forEach(c=> c.addEventListener("change", ()=>{
+      const g = c.dataset.g;
+      const any = [...q('.sg-mod-cb[data-g="'+g+'"]')].some(x=> x.checked);
+      root.querySelector('.sg-cb[data-g="'+g+'"]').checked = any;
+      refresh();
+    }));
+    q(".sg-name").forEach(i=> i.addEventListener("input", refresh));
+    document.getElementById("sgMin").addEventListener("change", e=> openRubriqueSuggestions(e.target.value));
+    document.getElementById("sgCancel").onclick = ()=>{ root.innerHTML = ""; };
+    document.getElementById("sgApply").onclick = ()=>{
+      if(!em.rubriques) em.rubriques = BO_RUBRIQUES.slice();
+      const created = [], byRubrique = {};
+      let assigned = 0;
+      const assign = (id, rub)=>{
+        const m = em.modules[id];
+        if(m && !m.rubrique){ m.rubrique = rub; assigned++; byRubrique[rub] = (byRubrique[rub]||0) + 1; }
+      };
+      if(root.querySelector('.sg-cb[data-g="x"]')){
+        const map = new Map(toExisting.map(x=> [String(x.m.id), x.r]));
+        q('.sg-mod-cb[data-g="x"]').forEach(c=>{ if(c.checked) assign(c.dataset.id, map.get(c.dataset.id)); });
+      }
+      suggestions.forEach((s, gi)=>{
+        const name = root.querySelector('.sg-name[data-g="'+gi+'"]').value.trim().replace(/\s+/g," ").toUpperCase();
+        const ids = [...q('.sg-mod-cb[data-g="'+gi+'"]')].filter(c=> c.checked).map(c=> c.dataset.id);
+        if(!name || !ids.length) return;
+        const k = looseKey(name);
+        let rub = allRubriquesFor(em).find(r=> looseKey(r) === k);
+        if(!rub){ em.rubriques.push(name); created.push(name); rub = name; }
+        ids.forEach(id=> assign(id, rub));
+      });
+      persistStore();
+      root.innerHTML = "";
+      refreshAllRubriqueUi(); renderModuleList(); renderBoHours();
+      const remaining = Object.values(em.modules).filter(m=> !m.rubrique).length;
+      alert(assigned + " module(s) associé(s)" +
+        (created.length ? ", " + created.length + " rubrique(s) créée(s) : " + created.join(", ") : "") +
+        ".\n" + remaining + " module(s) restent sans rubrique.");
+    };
+    refresh();
   }
 
   let state = null;          // current working conducteur/template state
@@ -2998,6 +3256,13 @@
 
       persistStore();
       statusEl.innerHTML = buildModuleImportReport({ file, sheetName, legacy, map, headerRow, added, updated, createdRubriques, issues });
+      if(issues.noRubrique.length >= 4){
+        const b = document.createElement("button");
+        b.className = "small"; b.style.cssText = "width:100%; margin-top:8px;";
+        b.textContent = "🔍 Proposer des rubriques pour les modules sans rubrique";
+        b.addEventListener("click", ()=> openRubriqueSuggestions(4));
+        statusEl.appendChild(b);
+      }
       if(createdRubriques.length) refreshAllRubriqueUi(); else renderModuleList();
       renderBoHours();
     }catch(e){
@@ -4492,6 +4757,7 @@
     document.getElementById("btnDeleteEmission").addEventListener("click", deleteEmission);
 
     document.getElementById("btnAutoAssignRubriques").addEventListener("click", autoAssignRubriques);
+    document.getElementById("btnSuggestRubriques").addEventListener("click", ()=> openRubriqueSuggestions(4));
     document.getElementById("btnClearAllHistory").addEventListener("click", clearAllRediffusionHistory);
     document.getElementById("btnAddRubrique").addEventListener("click", addRubrique);
     document.getElementById("btnNewGrid").addEventListener("click", createGrid);

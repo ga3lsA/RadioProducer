@@ -3377,6 +3377,25 @@
     return m.history.filter(h=> !(h.date===m.initialDate && h.hour===m.initialHour)).length;
   }
 
+  // Rubrique prise en compte par la règle d'écart : celle de la fiche, sinon celle reconnue dans le titre.
+  // Comparaison tolérante (casse, accents, pluriel, espaces) pour qu'une même rubrique écrite
+  // différemment d'un module à l'autre soit bien vue comme une seule.
+  let _rubKeyCache = { sig:null, map:new Map() };
+  function moduleRubriqueInfo(m){
+    const em = boEmission();
+    const list = em ? allRubriquesFor(em) : BO_RUBRIQUES;
+    const sig = list.join("|");
+    if(_rubKeyCache.sig !== sig) _rubKeyCache = { sig, map:new Map() };
+    const ck = m.id + "\u0001" + (m.rubrique||"") + "\u0001" + m.title;
+    let info = _rubKeyCache.map.get(ck);
+    if(!info){
+      const name = (m.rubrique && String(m.rubrique).trim()) || matchRubrique(m.title, list) || null;
+      info = name ? { name, key: looseKey(name) } : null;
+      _rubKeyCache.map.set(ck, info);
+    }
+    return info;
+  }
+
   function checkModuleEligibility(m, hIdx){
     if(!boState || hIdx==null || !boState.hours[hIdx]) return { eligible:true, reason:null };
     const em = boEmission();
@@ -3396,7 +3415,8 @@
         if(boDayIndexOf(i) !== targetDay) return;
         const mm = em.modules[id];
         if(!mm || hClock==null) return;
-        if(mm.rubrique) (rubriqueHours[mm.rubrique] = rubriqueHours[mm.rubrique] || new Set()).add(hClock);
+        const ri = moduleRubriqueInfo(mm);
+        if(ri) (rubriqueHours[ri.key] = rubriqueHours[ri.key] || new Set()).add(hClock);
         (mm.tags||[]).forEach(tag=> (tagHours[tag] = tagHours[tag] || new Set()).add(hClock));
       });
     });
@@ -3409,8 +3429,9 @@
     const conflict = clockHour!=null ? moduleConflicts(m, targetDate, clockHour) : null;
     if(conflict) return { eligible:false, reason: conflict };
 
-    if(rules.rubriqueGapEnabled && m.rubrique && clockHour!=null){
-      const used = rubriqueHours[m.rubrique];
+    const mRub = moduleRubriqueInfo(m);
+    if(rules.rubriqueGapEnabled && mRub && clockHour!=null){
+      const used = rubriqueHours[mRub.key];
       if(used){
         for(const h of used){
           if(Math.abs(h-clockHour)*60 < rules.rubriqueGapMinutes) return { eligible:false, reason:"rubrique déjà utilisée à " + String(h).padStart(2,"0")+"h ce jour" };
@@ -3428,6 +3449,48 @@
       }
     }
     return { eligible:true, reason:null };
+  }
+
+  // Vérifie qu'un module placé respecte les écarts rubrique / tags vis-à-vis des AUTRES modules
+  // placés le même jour (y compris dans la même heure). Renvoie le motif ou null.
+  function fmtGapMinutes(min){
+    const h = Math.floor(min/60), r = min%60;
+    return (h ? h + " h" : "") + (h && r ? " " : "") + (r ? r + " min" : "");
+  }
+  function placedGapIssue(m, hIdx, idx){
+    const em = boEmission();
+    if(!em || !boState) return null;
+    const rules = boRules();
+    const clockHour = boClockHourOf(hIdx);
+    if(clockHour==null) return null;
+    const day = boDayIndexOf(hIdx);
+    const ri = moduleRubriqueInfo(m);
+    for(let i=0; i<boState.hours.length; i++){
+      if(boDayIndexOf(i) !== day) continue;
+      const hc = boClockHourOf(i);
+      for(let j=0; j<boState.hours[i].moduleIds.length; j++){
+        if(i===hIdx && j===idx) continue;
+        const other = em.modules[boState.hours[i].moduleIds[j]];
+        if(!other) continue;
+        const gapMin = Math.abs(hc-clockHour)*60;
+        if(rules.rubriqueGapEnabled && ri){
+          const ro = moduleRubriqueInfo(other);
+          if(ro && ro.key===ri.key && gapMin < rules.rubriqueGapMinutes){
+            return "rubrique " + ri.name + (i===hIdx ? " déjà présente dans cette heure" : " aussi à " + String(hc).padStart(2,"0") + "h")
+              + " (écart minimum " + fmtGapMinutes(rules.rubriqueGapMinutes) + ")";
+          }
+        }
+        if(m.tags && m.tags.length && other.tags && other.tags.length){
+          for(const rule of rules.tagRules){
+            if(!rule.enabled || !m.tags.includes(rule.tag) || !other.tags.includes(rule.tag)) continue;
+            if(gapMin < rule.gapMinutes){
+              return 'tag "' + rule.tag + '"' + (i===hIdx ? " déjà présent dans cette heure" : " aussi à " + String(hc).padStart(2,"0") + "h");
+            }
+          }
+        }
+      }
+    }
+    return null;
   }
 
   function autoFillHourCore(hIdx){
@@ -3451,14 +3514,16 @@
         if(boDayIndexOf(i) !== targetDay) return;
         const mm = em.modules[id];
         if(!mm || hClock==null) return;
-        if(mm.rubrique) (rubriqueHours[mm.rubrique] = rubriqueHours[mm.rubrique] || new Set()).add(hClock);
+        const ri = moduleRubriqueInfo(mm);
+        if(ri) (rubriqueHours[ri.key] = rubriqueHours[ri.key] || new Set()).add(hClock);
         (mm.tags||[]).forEach(tag=> (tagHours[tag] = tagHours[tag] || new Set()).add(hClock));
       });
     });
 
     function rubriqueOk(m){
-      if(!rules.rubriqueGapEnabled || !m.rubrique || clockHour==null) return true;
-      const used = rubriqueHours[m.rubrique];
+      const ri = moduleRubriqueInfo(m);
+      if(!rules.rubriqueGapEnabled || !ri || clockHour==null) return true;
+      const used = rubriqueHours[ri.key];
       if(!used) return true;
       for(const h of used){ if(Math.abs(h-clockHour)*60 < rules.rubriqueGapMinutes) return false; }
       return true;
@@ -3492,7 +3557,8 @@
     function markUsed(m){
       usedElsewhere.add(m.id);
       if(clockHour!=null){
-        if(m.rubrique) (rubriqueHours[m.rubrique] = rubriqueHours[m.rubrique] || new Set()).add(clockHour);
+        const ri = moduleRubriqueInfo(m);
+        if(ri) (rubriqueHours[ri.key] = rubriqueHours[ri.key] || new Set()).add(clockHour);
         (m.tags||[]).forEach(tag=> (tagHours[tag] = tagHours[tag] || new Set()).add(clockHour));
       }
     }
@@ -4041,7 +4107,7 @@
             row.innerHTML = `<div class="bo-hour-badge"></div><div class="bo-handle"></div><div class="bo-info-wrap"><div class="bo-sub" style="color:var(--danger);">Module introuvable (supprimé de la base)</div></div><div class="bo-dur"></div><div class="bo-row-actions"><button class="bo-del">×</button></div>`;
           } else {
             const clockHour = boClockHourOf(hIdx);
-            const conflict = boFilterIssue(m) || (clockHour!=null ? moduleConflicts(m, boDateOf(hIdx), clockHour) : null);
+            const conflict = boFilterIssue(m) || (clockHour!=null ? moduleConflicts(m, boDateOf(hIdx), clockHour) : null) || placedGapIssue(m, hIdx, idx);
             if(conflict) row.classList.add("conflict");
             row.innerHTML = `
               <div class="bo-hour-badge">${m.initialHour!=null ? String(m.initialHour).padStart(2,"0")+"h init." : "—"}</div>
